@@ -1,2 +1,2 @@
-# trip-rider-flutter
+# triprider-flutter
 triprider mobile flutter code
