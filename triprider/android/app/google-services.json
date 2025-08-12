@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "821598719295",
+    "project_id": "triprider-eccf7",
+    "storage_bucket": "triprider-eccf7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:821598719295:android:bd260b82922874711d578a",
+        "android_client_info": {
+          "package_name": "com.example.triprider"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "821598719295-foh6pkodjq772b7b2talksn171mt4hnf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.triprider",
+            "certificate_hash": "71fef36a4a77d817fe6f5090511e13b5cffe386a"
+          }
+        },
+        {
+          "client_id": "821598719295-isgbivc4tor6p58vma7g9vec8pqhpggn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPISp3NoM4IKNS5ZE4OZX4U6B7wxmBNjo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "821598719295-isgbivc4tor6p58vma7g9vec8pqhpggn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
