@@ -159,18 +159,18 @@ class _WeatherState extends State<_Weather> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('강수', style: TextStyle(color: Colors.white, fontSize: 14)),
+                    const Text('강수', style: TextStyle(color: Colors.white, fontSize: 20)),
                     Row(
                       children: [
                         if (w.precipitationProb != null)
                           Text(
                             '$probPercent%',
-                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                            style: const TextStyle(color: Colors.white, fontSize: 20),
                           ),
                         if (w.precipitationProb != null) const SizedBox(width: 6),
                         Text(
                           '${w.precipitationMm.toStringAsFixed(1)} mm',
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                          style: const TextStyle(color: Colors.white, fontSize: 20),
                         ),
                         const SizedBox(width: 4),
                         const Icon(Icons.water_drop, color: Colors.white),
@@ -184,12 +184,12 @@ class _WeatherState extends State<_Weather> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('풍속', style: TextStyle(color: Colors.white, fontSize: 14)),
+                    const Text('풍속', style: TextStyle(color: Colors.white, fontSize: 20)),
                     Row(
                       children: [
                         Text(
                           '${w.windSpeedMs.toStringAsFixed(1)} m/s',
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                          style: const TextStyle(color: Colors.white, fontSize: 20),
                         ),
                         const SizedBox(width: 4),
                         const Icon(Icons.air, color: Colors.white),
@@ -205,7 +205,7 @@ class _WeatherState extends State<_Weather> {
                   _advisoryMessage(w),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
+                    fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

@@ -1,0 +1,150 @@
+// lib/screens/RiderGram/Api_client.dart
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+class ApiClient {
+  // 에뮬레이터: Android=10.0.2.2, iOS=127.0.0.1
+  static const String baseUrl = 'http://10.0.2.2:8080';
+  static const Duration _timeout = Duration(seconds: 15);
+  static final http.Client _client = http.Client();
+
+  // --- Auth & Headers -------------------------------------------------------
+  static Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('jwt'); // 저장 키명에 맞추어 사용
+  }
+
+  static Future<Map<String, String>> _defaultHeaders({
+    bool json = true,
+    Map<String, String>? override,
+  }) async {
+    final h = <String, String>{};
+    if (json) h['Content-Type'] = 'application/json';
+    final token = await _getToken();
+    if (token != null && token.isNotEmpty) {
+      h['Authorization'] = 'Bearer $token';
+    }
+    if (override != null) h.addAll(override);
+    return h;
+  }
+
+  static Uri _u(String path, [Map<String, dynamic>? q]) {
+    final base = Uri.parse('$baseUrl$path');
+    return q == null
+        ? base
+        : base.replace(
+          queryParameters: {
+            ...base.queryParameters,
+            ...q.map((k, v) => MapEntry(k, '$v')),
+          },
+        );
+  }
+
+  // --- HTTP: JSON 편의 메서드 -----------------------------------------------
+  static Future<http.Response> get(
+    String path, {
+    Map<String, dynamic>? query,
+    Map<String, String>? headers,
+  }) async {
+    final res = await _client
+        .get(_u(path, query), headers: await _defaultHeaders(override: headers))
+        .timeout(_timeout);
+    _throwIfError(res);
+    return res;
+  }
+
+  /// body가 String이면 그대로 전송, Map/객체면 JSON 인코딩해 전송
+  static Future<http.Response> post(
+    String path, {
+    Object? body,
+    Map<String, String>? headers,
+  }) async {
+    final b =
+        (body is String) ? body : (body == null ? null : jsonEncode(body));
+    final res = await _client
+        .post(
+          _u(path),
+          headers: await _defaultHeaders(override: headers),
+          body: b,
+        )
+        .timeout(_timeout);
+    _throwIfError(res);
+    return res;
+  }
+
+  static Future<http.Response> put(
+    String path, {
+    Object? body,
+    Map<String, String>? headers,
+  }) async {
+    final b =
+        (body is String) ? body : (body == null ? null : jsonEncode(body));
+    final res = await _client
+        .put(
+          _u(path),
+          headers: await _defaultHeaders(override: headers),
+          body: b,
+        )
+        .timeout(_timeout);
+    _throwIfError(res);
+    return res;
+  }
+
+  static Future<http.Response> delete(
+    String path, {
+    Object? body,
+    Map<String, String>? headers,
+  }) async {
+    final b =
+        (body is String) ? body : (body == null ? null : jsonEncode(body));
+    final res = await _client
+        .delete(
+          _u(path),
+          headers: await _defaultHeaders(override: headers),
+          body: b,
+        )
+        .timeout(_timeout);
+    _throwIfError(res);
+    return res;
+  }
+
+  // --- Multipart 업로드 ------------------------------------------------------
+  /// 이미지 파일 업로드 → 서버가 `{ "url": "/uploads/xxx.jpg" }` 반환한다고 가정
+  /// 반환값은 **절대 URL**.
+  static Future<String> uploadImage(
+    File file, {
+    String fieldName = 'file',
+  }) async {
+    final uri = _u('/api/upload');
+    final req = http.MultipartRequest('POST', uri);
+
+    // Auth 헤더
+    final token = await _getToken();
+    if (token != null && token.isNotEmpty) {
+      req.headers['Authorization'] = 'Bearer $token';
+    }
+
+    req.files.add(await http.MultipartFile.fromPath(fieldName, file.path));
+
+    final streamed = await req.send().timeout(_timeout);
+    final res = await http.Response.fromStream(streamed);
+    _throwIfError(res);
+
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final path = (data['url'] ?? data['path']) as String;
+    return path.startsWith('http') ? path : '$baseUrl$path';
+  }
+
+  // --- 공통 에러 처리 --------------------------------------------------------
+  // ✅ 정상 버전
+  static void _throwIfError(http.Response res) {
+    if (res.statusCode >= 400) {
+      throw HttpException(
+        'HTTP ${res.statusCode}\n${res.request?.url}\n${res.body}',
+        uri: res.request?.url,
+      );
+    }
+  }
+}

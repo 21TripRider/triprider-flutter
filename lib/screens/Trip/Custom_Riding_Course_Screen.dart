@@ -77,39 +77,45 @@ class Create_Course_Button extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text(
-                '나의 취향을 담은 ',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Text(
-                '여행 코스',
-                style: TextStyle(
-                  color: Color(0XFFFF4E6B),
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Text(
-                '를 생성해보세요',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
+              // ← 텍스트는 Expanded로 감싸 폭에 맞춰 줄바꿈
+              Expanded(
+                child: Text.rich(
+                  TextSpan(children: [
+                    const TextSpan(
+                      text: '나의 취향을 담은 ',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const TextSpan(
+                      text: '여행 코스',
+                      style: TextStyle(
+                        color: Color(0XFFFF4E6B),
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const TextSpan(
+                      text: '를 생성해보세요',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ]),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,       // 필요 시 2줄까지
+                  overflow: TextOverflow.fade,
+                  softWrap: true,
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(
-                Icons.arrow_forward_ios,
-                size: 20,
-                color: Colors.black,
-              ),
+              const Icon(Icons.arrow_forward_ios, size: 20, color: Colors.black),
             ],
           ),
         ),
@@ -117,3 +123,4 @@ class Create_Course_Button extends StatelessWidget {
     );
   }
 }
+

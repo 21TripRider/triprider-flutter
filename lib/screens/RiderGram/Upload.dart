@@ -1,8 +1,7 @@
-import 'package:flutter/cupertino.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
-
+import 'package:triprider/screens/RiderGram/Api_client.dart';
 
 class Upload extends StatefulWidget {
   const Upload({super.key});
@@ -16,37 +15,64 @@ class _UploadState extends State<Upload> {
   XFile? _image;
   final _contentCtrl = TextEditingController();
   final _tagCtrl = TextEditingController();
+  final _locationCtrl = TextEditingController();
 
-  bool get _canPost {
-    // 최소: 사진 또는 글이 있어야 게시 가능 (원하면 규칙 바꿔도 됨)
-    return (_image != null) || _contentCtrl.text.trim().isNotEmpty;
-  }
+  bool _posting = false;
+
+  bool get _canPost =>
+      (_image != null) || _contentCtrl.text.trim().isNotEmpty;
 
   Future<void> _pickImage() async {
-    final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
+    final picked = await _picker.pickImage(source: ImageSource.gallery);
     if (picked != null) setState(() => _image = picked);
   }
 
-  List<String> _parseTags(String raw) {
-    // " #라이딩  #제주도  #바다 " → ["라이딩","제주도","바다"]
+  String _tagsToServerString(String raw) {
+    // "#제주 #바다" → "#제주 #바다"
     final r = RegExp(r'#([^\s#]+)');
-    return r.allMatches(raw).map((m) => m.group(1)!).toList();
+    final found = r.allMatches(raw).map((m) => m.group(1)!).toSet();
+    if (found.isEmpty) return '';
+    return found.map((t) => '#$t').join(' ');
   }
 
-  void _submit() {
-    if (!_canPost) return;
-    final data = PostData(
-      image: _image,
-      content: _contentCtrl.text.trim(),
-      tags: _parseTags(_tagCtrl.text),
-    );
-    Navigator.of(context).pop(data); // ← 결과 되돌리기
+  Future<void> _submit() async {
+    if (!_canPost || _posting) return;
+    setState(() => _posting = true);
+
+    try {
+      String? imageUrl;
+      if (_image != null) {
+        // 1) 이미지 먼저 업로드 → 절대 URL 획득
+        imageUrl = await ApiClient.uploadImage(File(_image!.path));
+      }
+
+      // 2) 게시글 생성
+      final body = {
+        "content": _contentCtrl.text.trim(),
+        "imageUrl": imageUrl, // 이제 null 아님(이미지 있을 때)
+        "location": _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim(),
+        "hashtags": _tagsToServerString(_tagCtrl.text),
+      };
+
+      await ApiClient.post('/api/posts', body: body);
+
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('업로드 실패: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _posting = false);
+    }
   }
 
   @override
   void dispose() {
     _contentCtrl.dispose();
     _tagCtrl.dispose();
+    _locationCtrl.dispose();
     super.dispose();
   }
 
@@ -57,16 +83,16 @@ class _UploadState extends State<Upload> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).pop(false),
           icon: const Icon(Icons.close, size: 28),
         ),
         actions: [
           TextButton(
-            onPressed: _canPost ? _submit : null,
+            onPressed: _canPost && !_posting ? _submit : null,
             child: Text(
-              '게시',
+              _posting ? '게시 중...' : '게시',
               style: TextStyle(
-                color: _canPost ? Colors.black : Colors.black26,
+                color: (_canPost && !_posting) ? Colors.black : Colors.black26,
                 fontSize: 18, fontWeight: FontWeight.w600,
               ),
             ),
@@ -80,7 +106,7 @@ class _UploadState extends State<Upload> {
             child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
-                // 사진 영역
+                // 이미지 선택
                 GestureDetector(
                   onTap: _pickImage,
                   child: Container(
@@ -101,14 +127,15 @@ class _UploadState extends State<Upload> {
                     )
                         : ClipRRect(
                       borderRadius: BorderRadius.circular(16),
-                      child: Image.file(File(_image!.path),
+                      child: Image.file(
+                          File(_image!.path),
                           height: 220, width: double.infinity, fit: BoxFit.cover),
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
 
-                // 글쓰기
+                // 본문
                 TextField(
                   controller: _contentCtrl,
                   maxLines: null,
@@ -120,7 +147,17 @@ class _UploadState extends State<Upload> {
                 ),
                 const SizedBox(height: 8),
 
-                // 해시태그 (예: #라이딩 #제주도)
+                // 위치(선택)
+                TextField(
+                  controller: _locationCtrl,
+                  decoration: const InputDecoration(
+                    hintText: '위치 (선택)',
+                    border: InputBorder.none,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // 해시태그
                 TextField(
                   controller: _tagCtrl,
                   decoration: const InputDecoration(
@@ -136,13 +173,3 @@ class _UploadState extends State<Upload> {
     );
   }
 }
-
-
-class PostData {
-  final XFile? image;      // 갤러리에서 고른 사진
-  final String content;    // 글 본문
-  final List<String> tags; // #태그 리스트
-
-  PostData({this.image, required this.content, required this.tags});
-}
-
