@@ -74,9 +74,9 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   assets:
-    - assets/image/
-    - assets/routes/UdoElectricRentcar/ors-route_1755092065670.json
-    - assets/routes/UdoFerry/ors-route_1755075508408.json
+    - assets/image/  
+    - assets/routes/Udo1/ors-route_1755092065670.json
+    - assets/routes/Udo2/ors-route_1755075508408.json
     - assets/routes/Inland1/ors-route_1755149124757.json
     - assets/routes/Inland2/ors-route_1755149841325.json
     - assets/routes/Inland3/ors-route_1755150907407.json
