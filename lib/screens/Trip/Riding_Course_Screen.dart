@@ -240,6 +240,8 @@ class _Popular_CourseState extends State<Popular_Course> {
   }
 }
 
+
+///거리순 코스
 class Distance_Course extends StatelessWidget {
   final VoidCallback represh_Pressed;
   final VoidCallback course_Pressed;

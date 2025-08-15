@@ -1,13 +1,31 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 네트워크/지도/위치 권한 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <!-- Android 12 이하 호환 -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
     <application
         android:usesCleartextTraffic="true"
         android:label="test_triprider"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <!-- ✅ Google Maps API 키: 반드시 <application>의 직속 자식이어야 함 -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyA53fiKudkjSzIee7zn-gebXgJuWNuF4lc" />
+
+        <!-- Flutter 엔진 메타데이터 (application 레벨에 1개만) -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
 
         <!-- 카카오 로그인 커스텀 URL 스킴 설정 -->
         <activity
@@ -17,10 +35,9 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-
-                <!-- "kakao${YOUR_NATIVE_APP_KEY}://oauth" 형식의 앱 실행 스킴 설정 -->
-                <!-- 카카오 로그인 리다이렉트 URI -->
-                <data android:scheme="kakao857552ba819176e757da967cea31fc13" android:host="oauth"/>
+                <data
+                    android:scheme="kakao857552ba819176e757da967cea31fc13"
+                    android:host="oauth"/>
             </intent-filter>
         </activity>
 
@@ -33,36 +50,31 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
+
+            <!-- (삭제됨) 아래 두 meta-data는 Activity 안에 있으면 안 됨
+            <meta-data android:name="io.flutter.embedding.android.NormalTheme" ... />
+            <meta-data android:name="com.google.android.geo.API_KEY" ... />
+            <meta-data android:name="flutterEmbedding" android:value="2" />
+            -->
+
+            <!-- 정상 위치: NormalTheme는 Activity 안에 있어도 됨 -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
-                android:resource="@style/NormalTheme"
-                />
+                android:resource="@style/NormalTheme" />
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
-    </application>
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    </application>
+
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
-
 
 </manifest>

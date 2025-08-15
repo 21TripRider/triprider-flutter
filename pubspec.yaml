@@ -35,6 +35,9 @@ dependencies:
   image_picker: ^1.1.2
   permission_handler: ^11.3.1
 
+  google_maps_flutter: ^2.9.0
+  flutter_polyline_points: ^2.0.0
+
 
 
   shared_preferences: ^2.2.0
@@ -43,6 +46,9 @@ dependencies:
 
   flutter:
     sdk: flutter
+
+  url_launcher: ^6.3.0
+  webview_flutter: ^4.7.0
 
   kakao_flutter_sdk_user: ^1.9.7+3 # 카카오 로그인 API 패키지
 
@@ -69,6 +75,23 @@ dev_dependencies:
 flutter:
   assets:
     - assets/image/
+    - assets/routes/UdoElectricRentcar/ors-route_1755092065670.json
+    - assets/routes/UdoFerry/ors-route_1755075508408.json
+    - assets/routes/Inland1/ors-route_1755149124757.json
+    - assets/routes/Inland2/ors-route_1755149841325.json
+    - assets/routes/Inland3/ors-route_1755150907407.json
+    - assets/routes/Inland4/ors-route_1755151207874.json
+    - assets/routes/Inland5/ors-route_1755151567724.json
+    - assets/routes/Coast1/ors-route_1755153540754.json
+    - assets/routes/Coast2/ors-route_1755154145825.json
+    - assets/routes/Coast3/ors-route_1755154596691.json
+    - assets/routes/Coast4/ors-route_1755154991078.json
+    - assets/routes/Coast5/ors-route_1755155632325.json
+    - assets/routes/Coast6/ors-route_1755156213032.json
+    - assets/routes/Coast7/ors-route_1755156948329.json
+    - assets/routes/Coast8/ors-route_1755157157182.json
+    - assets/routes/Coast9/ors-route_1755157606508.json
+    - assets/routes/Coast10/ors-route_1755157841034.json
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

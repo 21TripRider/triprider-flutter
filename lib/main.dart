@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:triprider/screens/Home/HomeScreen.dart';
 import 'package:triprider/screens/Login/LoginScreen.dart';
 import 'package:triprider/screens/Login/WelcomeScreen.dart';
+import 'package:triprider/screens/Trip/courses/Coast1.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,5 +16,5 @@ void main() async {
   );
 
 
-  runApp(MaterialApp(home: Welcomescreen()));
+  runApp(MaterialApp(home: Homescreen()));
 }
