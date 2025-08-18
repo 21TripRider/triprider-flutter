@@ -116,6 +116,11 @@ class _RidergramScreenState extends State<RidergramScreen> {
               itemBuilder: (_, i) => _PostCard(
                 post: _posts[i],
                 onToggleLike: () => _toggleLike(i),
+                onCommentCountChanged: (newCount) {
+                  setState(() {
+                    _posts[i] = _posts[i].copyWith(commentCount: newCount);
+                  });
+                },
               ),
             ),
           );
@@ -129,11 +134,13 @@ class _RidergramScreenState extends State<RidergramScreen> {
 class _PostCard extends StatelessWidget {
   final PostModel post;
   final VoidCallback onToggleLike;
+  final ValueChanged<int> onCommentCountChanged;
 
   const _PostCard({
     super.key,
     required this.post,
     required this.onToggleLike,
+    required this.onCommentCountChanged,
   });
 
   @override
@@ -171,7 +178,7 @@ class _PostCard extends StatelessWidget {
             ),
           ),
 
-        // 액션바 (좋아요)
+        // 액션바 (좋아요 + 댓글)
         Row(
           children: [
             IconButton(
@@ -183,18 +190,23 @@ class _PostCard extends StatelessWidget {
             ),
             Text('${post.likeCount}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
 
-            const SizedBox(width: 4),
+            const SizedBox(width: 12),
             IconButton(
               icon: const Icon(Icons.mode_comment_outlined),
-              onPressed: () {
-                showModalBottomSheet(
+              onPressed: () async { // ✅ async로 변경
+                final newCount = await showModalBottomSheet<int>(
                   context: context,
                   isScrollControlled: true,
                   backgroundColor: Colors.transparent,
                   builder: (_) => CommentSheet(postId: post.id),
                 );
+                if (newCount != null) {
+                  onCommentCountChanged(newCount); // ✅ 최신 개수 반영
+                }
               },
             ),
+            Text('${post.commentCount}',
+                style: const TextStyle(fontSize: 14, color: Colors.grey)),
           ],
         ),
 

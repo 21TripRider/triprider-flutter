@@ -81,7 +81,7 @@ class _CommentSheetState extends State<CommentSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return GestureDetector(
-      onTap: () => Navigator.of(context).pop(), // 바깥 탭 닫기
+      onTap: () => Navigator.of(context).pop(_items.length), // 바깥 탭 닫기
       behavior: HitTestBehavior.opaque,
       child: GestureDetector(
         onTap: () {}, // 내부 터치 통과
@@ -203,7 +203,7 @@ class _CommentSheetState extends State<CommentSheet> {
                                           context: context,
                                           builder: (_) => AlertDialog(
                                             title: const Text('삭제할까요?'),
-                                            content: const Text('내가 쓴 댓글만 삭제할 수 있어요.'),
+                                            content: const Text('해당 댓글이 게시글에서 삭제됩니다.'),
                                             actions: [
                                               TextButton(
                                                 onPressed: () => Navigator.pop(context, false),

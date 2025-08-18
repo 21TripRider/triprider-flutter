@@ -20,15 +20,14 @@ class _HomescreenState extends State<Homescreen> {
     return Scaffold(
       body: ListView(
         children: [
-          _Weather(),
-          SizedBox(height: 15),
+          const _Weather(),
+          const SizedBox(height: 15),
           _Rent(onPressed: Rent_Pressed),
-          SizedBox(height: 15),
-          _Record(),
+          const SizedBox(height: 15),
+          const _Record(),
         ],
       ),
-
-      bottomNavigationBar: BottomAppBarWidget(),
+      bottomNavigationBar: const BottomAppBarWidget(),
     );
   }
 
@@ -41,34 +40,11 @@ class _HomescreenState extends State<Homescreen> {
       ),
     );
   }
-
-
-  Home_Button_Pressed() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (BuildContext context) {
-          return Homescreen();
-        },
-      ),
-    );
-  }
-
-
-  Course_Button_Pressed() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (BuildContext context) {
-          return RidingCourse();
-        },
-      ),
-    );
-  }
-
-  Ridergram_Button_Pressed() {}
-  Mypage_Button_Pressed() {}
 }
 
-///날씨 위젯
+/// ─────────────────────────────────────────────────────────
+/// 날씨 위젯
+/// ─────────────────────────────────────────────────────────
 class _Weather extends StatefulWidget {
   const _Weather({super.key});
 
@@ -83,7 +59,13 @@ class _WeatherState extends State<_Weather> {
   @override
   void initState() {
     super.initState();
-    _future = _api.fetchJeju(); // ← /api/jeju-weather 호출
+    _future = _api.fetchJeju(); // /api/jeju-weather 호출
+  }
+
+  // 간단 야간 판정: 18시~익일 6시는 ‘밤’
+  bool get _isNightNow {
+    final h = DateTime.now().hour;
+    return h < 6 || h >= 18;
   }
 
   @override
@@ -112,50 +94,39 @@ class _WeatherState extends State<_Weather> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                /// 1. 지역명(고정: 제주도) + 온도
+                /// 1) 지역명 + 온도
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
                       '제주도',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     Text(
                       '${w.tempC.toStringAsFixed(1)}°C',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
 
                 const SizedBox(height: 10),
 
-                /// 2. 날씨 아이콘 (기본 맑음 + 상태별 변경)
-                Icon(
-                  _pickWeatherIcon(
-                    skyCode: w.skyCode,
-                    rainCode: w.rainCode,
-                    lightningCode: w.lgtCode,
-                    precipitationMm: w.precipitationMm,
-                    precipitationProb: w.precipitationProb,
-                  ),
-                  color: Colors.white,
+                /// 2) 날씨 아이콘 (낮/밤 + 해/달/부분운/구름)
+                _buildWeatherIcon(
+                  skyCode: w.skyCode,
+                  rainCode: w.rainCode,
+                  lightningCode: w.lgtCode,
+                  precipitationMm: w.precipitationMm,
+                  precipitationProb: w.precipitationProb,
+                  isNight: _isNightNow,
                   size: 48,
+                  color: Colors.white,
                 ),
 
                 const SizedBox(height: 10),
 
-                /// 3. 강수(확률 + 강수량) + 풍속
+                /// 3) 강수/풍속
                 const Divider(color: Colors.white),
-
-                // 강수: 확률이 있으면 %도, 강수량은 항상 mm 표기
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -163,34 +134,25 @@ class _WeatherState extends State<_Weather> {
                     Row(
                       children: [
                         if (w.precipitationProb != null)
-                          Text(
-                            '$probPercent%',
-                            style: const TextStyle(color: Colors.white, fontSize: 20),
-                          ),
+                          Text('$probPercent%', style: const TextStyle(color: Colors.white, fontSize: 20)),
                         if (w.precipitationProb != null) const SizedBox(width: 6),
-                        Text(
-                          '${w.precipitationMm.toStringAsFixed(1)} mm',
-                          style: const TextStyle(color: Colors.white, fontSize: 20),
-                        ),
+                        Text('${w.precipitationMm.toStringAsFixed(1)} mm',
+                            style: const TextStyle(color: Colors.white, fontSize: 20)),
                         const SizedBox(width: 4),
                         const Icon(Icons.water_drop, color: Colors.white),
                       ],
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 8),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('풍속', style: TextStyle(color: Colors.white, fontSize: 20)),
                     Row(
                       children: [
-                        Text(
-                          '${w.windSpeedMs.toStringAsFixed(1)} m/s',
-                          style: const TextStyle(color: Colors.white, fontSize: 20),
-                        ),
+                        Text('${w.windSpeedMs.toStringAsFixed(1)} m/s',
+                            style: const TextStyle(color: Colors.white, fontSize: 20)),
                         const SizedBox(width: 4),
                         const Icon(Icons.air, color: Colors.white),
                       ],
@@ -200,14 +162,10 @@ class _WeatherState extends State<_Weather> {
 
                 const SizedBox(height: 16),
 
-                /// 4. 안전 메시지
+                /// 4) 안전 메시지
                 Text(
                   _advisoryMessage(w),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
                 ),
 
                 const SizedBox(height: 10),
@@ -220,52 +178,77 @@ class _WeatherState extends State<_Weather> {
     );
   }
 
-  // 기본: 맑음(해). 우선순위: 번개 > 강수(비/눈) > 하늘상태 > 기본
-  IconData _pickWeatherIcon({
-    int? skyCode,
-    int? rainCode,
-    int? lightningCode,
+  /// 아이콘 빌더: 번개 > 강수(비/눈) > 하늘상태(맑음/부분운/흐림)
+  /// - 낮: 해, 해+구름, 구름
+  /// - 밤: 달, 달+구름, 구름
+  Widget _buildWeatherIcon({
+    required int? skyCode,
+    required int? rainCode,
+    required int? lightningCode,
     required double precipitationMm,
-    double? precipitationProb,
+    required double? precipitationProb,
+    required bool isNight,
+    double size = 48,
+    Color color = Colors.white,
   }) {
-    final IconData fallback = Icons.wb_sunny; // 기본 맑음
     final int sky = skyCode ?? 1; // 1=맑음, 3=구름많음, 4=흐림
-    final int pty = rainCode ?? 0; // 0=없음, 1=비, 2=비/눈, 3=눈, 4=소나기, 5=빗방울, 6=빗방울/눈날림, 7=눈날림
+    final int pty = rainCode ?? 0; // 0=없음, 1=비,2=비/눈,3=눈,4=소나기,5=빗방울,6=빗방울/눈날림,7=눈날림
     final int lgt = lightningCode ?? 0;
 
-    // 강수 보조판단: 강수형태가 없어도 확률/강수량으로 비 판단
-    final bool likelyRaining = pty != 0 || precipitationMm > 0 || (precipitationProb ?? 0) > 0.5;
+    final bool precip =
+        pty != 0 || precipitationMm > 0 || (precipitationProb ?? 0) > 0.5;
 
-    // 1) 번개 최우선
+    // 1) 번개
     if (lgt > 0) {
-      // 프로젝트 Flutter 버전에 따라 없으면 Icons.electric_bolt로 대체
-      return Icons.thunderstorm;
+      return Icon(Icons.thunderstorm, color: color, size: size);
     }
 
     // 2) 강수
-    if (likelyRaining) {
-      switch (pty) {
-        case 3: // 눈
-        case 7: // 눈날림
-          return Icons.ac_unit;
-        case 2: // 비/눈
-        case 6: // 빗방울/눈날림
-          return Icons.cloudy_snowing; // 대체 아이콘
-        default: // 비, 소나기, 빗방울 등
-          return Icons.umbrella;
+    if (precip) {
+      if (pty == 3 || pty == 7) {
+        return Icon(Icons.ac_unit, color: color, size: size); // 눈
       }
+      if (pty == 2 || pty == 6) {
+        return Icon(Icons.cloudy_snowing, color: color, size: size); // 비/눈 혼합
+      }
+      return Icon(Icons.umbrella, color: color, size: size); // 비/소나기/빗방울
     }
 
-    // 3) 하늘 상태
-    switch (sky) {
-      case 1:
-        return Icons.wb_sunny; // 맑음
-      case 3:
-        return Icons.cloud;    // 구름 많음
-      case 4:
-      default:
-        return Icons.cloud;    // 흐림(기본)
+    // 3) 하늘 상태 (비/눈 없을 때)
+    final IconData sun = Icons.wb_sunny;
+    final IconData moon = Icons.dark_mode;
+    final IconData cloud = Icons.cloud;
+
+    // (a) 맑음
+    if (sky == 1) {
+      return Icon(isNight ? moon : sun, color: color, size: size);
     }
+
+    // (b) 부분운(해/달 + 구름) — 두 아이콘을 겹쳐서 표현
+    if (sky == 3) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned(
+              left: 2,
+              top: 2,
+              child: Icon(isNight ? moon : sun, color: color.withOpacity(0.9), size: size * 0.85),
+            ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Icon(cloud, color: color, size: size * 0.70),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // (c) 흐림
+    return Icon(cloud, color: color, size: size);
   }
 
   // 로딩 스켈레톤
@@ -276,9 +259,7 @@ class _WeatherState extends State<_Weather> {
     ),
     padding: const EdgeInsets.all(20),
     height: 180,
-    child: const Center(
-      child: CircularProgressIndicator(color: Colors.white),
-    ),
+    child: const Center(child: CircularProgressIndicator(color: Colors.white)),
   );
 
   // 에러 카드
@@ -317,26 +298,22 @@ class _WeatherState extends State<_Weather> {
   }
 }
 
-
-
-///랜트 위젯
+/// ─────────────────────────────────────────────────────────
+/// 렌트 위젯
+/// ─────────────────────────────────────────────────────────
 class _Rent extends StatelessWidget {
   final VoidCallback onPressed;
-
   const _Rent({super.key, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Image.asset('assets/image/RentCar.png'),
-      ),
-    );
+    return IconButton(onPressed: onPressed, icon: Image.asset('assets/image/RentCar.png'));
   }
 }
 
-///최근 주행 기록 위젯
+/// ─────────────────────────────────────────────────────────
+/// 최근 주행 기록 위젯
+/// ─────────────────────────────────────────────────────────
 class _Record extends StatelessWidget {
   const _Record({super.key});
 
@@ -345,109 +322,44 @@ class _Record extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
         padding: const EdgeInsets.all(20.0),
-
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '최근 주행 기록',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-                ),
-
-                Row(
-                  children: [
-                    Text(
-                      '57',
-                      style: TextStyle(
-                        fontSize: 25,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-
-                    Text(
-                      'KM',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+              children: const [
+                Text('최근 주행 기록', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                _KmStat(),
               ],
             ),
-
             Row(
               children: [
                 Container(
                   width: 90,
                   height: 30,
-                  decoration: BoxDecoration(
-                    color: Color(0XFFFFF4F6),
-                    borderRadius: BorderRadius.circular(50),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '2025.07.23',
-                      style: TextStyle(color: Color(0XFFFF4E6B)),
-                    ),
-                  ),
+                  decoration: BoxDecoration(color: const Color(0XFFFFF4F6), borderRadius: BorderRadius.circular(50)),
+                  child: const Center(child: Text('2025.07.23', style: TextStyle(color: Color(0XFFFF4E6B)))),
                 ),
-
+                const SizedBox(width: 8),
                 Container(
                   width: 140,
                   height: 30,
-                  decoration: BoxDecoration(
-                    color: Color(0XFFFFF4F6),
-                    borderRadius: BorderRadius.circular(50),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '제주도 제주시 한강면',
-                      style: TextStyle(color: Color(0XFFFF4E6B)),
-                    ),
-                  ),
+                  decoration: BoxDecoration(color: const Color(0XFFFFF4F6), borderRadius: BorderRadius.circular(50)),
+                  child: const Center(child: Text('제주도 제주시 한강면', style: TextStyle(color: Color(0XFFFF4E6B)))),
                 ),
               ],
             ),
-
-            SizedBox(height: 15),
-
-            Divider(color: Colors.grey),
-
-            SizedBox(height: 15),
-
+            const SizedBox(height: 15),
+            const Divider(color: Colors.grey),
+            const SizedBox(height: 15),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Column(
-                  children: [
-                    Text('평균 속도', style: TextStyle(color: Colors.grey)),
-                    Text('53KM', style: TextStyle(fontSize: 20)),
-                  ],
-                ),
-
-                Column(
-                  children: [
-                    Text('최고 속도', style: TextStyle(color: Colors.grey)),
-                    Text('82 KM', style: TextStyle(fontSize: 20)),
-                  ],
-                ),
-
-                Column(
-                  children: [
-                    Text('주행 시간', style: TextStyle(color: Colors.grey)),
-                    Text('01:04:32', style: TextStyle(fontSize: 20)),
-                  ],
-                ),
+              children: const [
+                _SmallStat(title: '평균 속도', value: '53KM'),
+                _SmallStat(title: '최고 속도', value: '82 KM'),
+                _SmallStat(title: '주행 시간', value: '01:04:32'),
               ],
             ),
           ],
@@ -457,44 +369,30 @@ class _Record extends StatelessWidget {
   }
 }
 
-class bottomAppBar extends StatelessWidget {
-  final VoidCallback homePressed;
-  final VoidCallback coursePressed;
-  final VoidCallback ridergramPressed;
-  final VoidCallback mypagePressed;
-
-  const bottomAppBar({
-    super.key,
-    required this.mypagePressed,
-    required this.homePressed,
-    required this.coursePressed,
-    required this.ridergramPressed,
-  });
-
+class _KmStat extends StatelessWidget {
+  const _KmStat({super.key});
   @override
   Widget build(BuildContext context) {
-    return BottomAppBar(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          IconButton(
-            onPressed: homePressed,
-            icon: Icon(Icons.home_filled, size: 40),
-          ),
-          IconButton(
-            onPressed: coursePressed,
-            icon: Icon(Icons.motorcycle_sharp, size: 40),
-          ),
-          IconButton(
-            onPressed: ridergramPressed,
-            icon: Icon(Icons.message, size: 40),
-          ),
-          IconButton(
-            onPressed: mypagePressed,
-            icon: Icon(Icons.person, size: 40),
-          ),
-        ],
-      ),
+    return Row(
+      children: const [
+        Text('57', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
+        Text('KM', style: TextStyle(color: Colors.grey, fontSize: 20, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+}
+
+class _SmallStat extends StatelessWidget {
+  final String title;
+  final String value;
+  const _SmallStat({super.key, required this.title, required this.value});
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(title, style: const TextStyle(color: Colors.grey)),
+        Text(value, style: const TextStyle(fontSize: 20)),
+      ],
     );
   }
 }

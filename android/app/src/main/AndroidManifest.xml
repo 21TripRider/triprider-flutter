@@ -1,33 +1,37 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 네트워크/지도/위치 권한 -->
+    <!-- 권한 -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
     <application
-        android:usesCleartextTraffic="true"
-        android:label="test_triprider"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:label="test_triprider"
+        android:icon="@mipmap/ic_launcher"
 
-        <!-- ✅ Google Maps API 키: 반드시 <application>의 직속 자식이어야 함 -->
+        android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config"
+
+        android:enableOnBackInvokedCallback="true">
+
+        <!-- Google Maps API Key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyA53fiKudkjSzIee7zn-gebXgJuWNuF4lc" />
 
-        <!-- Flutter 엔진 메타데이터 (application 레벨에 1개만) -->
+        <!-- Flutter embedding v2 -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- 카카오 로그인 커스텀 URL 스킴 설정 -->
+        <!-- 카카오 로그인 커스텀 탭 -->
         <activity
             android:name="com.kakao.sdk.flutter.AuthCodeCustomTabsActivity"
             android:exported="true">
@@ -37,10 +41,11 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="kakao857552ba819176e757da967cea31fc13"
-                    android:host="oauth"/>
+                    android:host="oauth" />
             </intent-filter>
         </activity>
 
+        <!-- 메인 액티비티 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -51,29 +56,24 @@
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
 
-            <!-- (삭제됨) 아래 두 meta-data는 Activity 안에 있으면 안 됨
-            <meta-data android:name="io.flutter.embedding.android.NormalTheme" ... />
-            <meta-data android:name="com.google.android.geo.API_KEY" ... />
-            <meta-data android:name="flutterEmbedding" android:value="2" />
-            -->
-
-            <!-- 정상 위치: NormalTheme는 Activity 안에 있어도 됨 -->
+            <!-- NormalTheme 메타데이터 -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
 
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
     </application>
 
+    <!-- 외부 앱 쿼리 -->
     <queries>
         <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
         </intent>
     </queries>
 

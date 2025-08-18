@@ -24,10 +24,9 @@ class CourseDetailmap extends StatefulWidget {
     this.endTitle = '도착',
 
     // ▽ 둘 중 하나만 주면 됨
-    this.encodedPolyline,     // 미리 만든 encoded polyline 문자열
-    this.points,              // LatLng 리스트
-    this.orsJsonAssetPath,    // ★ ORS JSON(또는 GeoJSON) 파일 경로 (assets)
-
+    this.encodedPolyline, // 미리 만든 encoded polyline 문자열
+    this.points, // LatLng 리스트
+    this.orsJsonAssetPath, // ★ ORS JSON(또는 GeoJSON) 파일 경로 (assets)
     // ▽ 경로가 전혀 없을 때만 사용 (과금 주의)
     this.fetchWithDirections = false,
     this.directionsApiKey,
@@ -41,7 +40,7 @@ class CourseDetailmap extends StatefulWidget {
 
   final String? encodedPolyline;
   final List<LatLng>? points;
-  final String? orsJsonAssetPath;     // ★ 추가
+  final String? orsJsonAssetPath; // ★ 추가
 
   final bool fetchWithDirections;
   final String? directionsApiKey;
@@ -73,7 +72,9 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
         _route.addAll(widget.points!);
       } else if (widget.encodedPolyline != null &&
           widget.encodedPolyline!.isNotEmpty) {
-        final decoded = PolylinePoints().decodePolyline(widget.encodedPolyline!);
+        final decoded = PolylinePoints().decodePolyline(
+          widget.encodedPolyline!,
+        );
         _route.addAll(decoded.map((p) => LatLng(p.latitude, p.longitude)));
       } else if (widget.orsJsonAssetPath != null &&
           widget.orsJsonAssetPath!.isNotEmpty) {
@@ -82,7 +83,10 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
       } else if (widget.fetchWithDirections) {
         // ⚠️ 과금 항목 (월 $200 크레딧 내 무료)
         final encoded = await _fetchEncodedPolyline(
-          widget.start, widget.end, widget.travelMode, widget.directionsApiKey!,
+          widget.start,
+          widget.end,
+          widget.travelMode,
+          widget.directionsApiKey!,
         );
         final decoded = PolylinePoints().decodePolyline(encoded);
         _route.addAll(decoded.map((p) => LatLng(p.latitude, p.longitude)));
@@ -94,24 +98,30 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
 
       // 2) 마커 (출발/도착)
       _markers
-        ..add(Marker(
-          markerId: const MarkerId('start'),
-          position: widget.start,
-          infoWindow: InfoWindow(title: widget.startTitle),
-        ))
-        ..add(Marker(
-          markerId: const MarkerId('end'),
-          position: widget.end,
-          infoWindow: InfoWindow(title: widget.endTitle),
-        ));
+        ..add(
+          Marker(
+            markerId: const MarkerId('start'),
+            position: widget.start,
+            infoWindow: InfoWindow(title: widget.startTitle),
+          ),
+        )
+        ..add(
+          Marker(
+            markerId: const MarkerId('end'),
+            position: widget.end,
+            infoWindow: InfoWindow(title: widget.endTitle),
+          ),
+        );
 
       // 3) 폴리라인
-      _polylines.add(Polyline(
-        polylineId: const PolylineId('route'),
-        width: 6,
-        color: Colors.blue,
-        points: _route,
-      ));
+      _polylines.add(
+        Polyline(
+          polylineId: const PolylineId('route'),
+          width: 6,
+          color: Colors.blue,
+          points: _route,
+        ),
+      );
 
       _loading = false;
       setState(() {});
@@ -131,11 +141,15 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
     final data = jsonDecode(raw);
 
     // case A: ORS JSON (routes[0].geometry.coordinates)
-    if (data is Map && data['routes'] is List && (data['routes'] as List).isNotEmpty) {
+    if (data is Map &&
+        data['routes'] is List &&
+        (data['routes'] as List).isNotEmpty) {
       final r0 = (data['routes'] as List).first;
       final geom = r0['geometry'];
       // Encoded polyline가 아니라 좌표 배열(LineString)인 경우
-      if (geom is Map && geom['type'] == 'LineString' && geom['coordinates'] is List) {
+      if (geom is Map &&
+          geom['type'] == 'LineString' &&
+          geom['coordinates'] is List) {
         final coords = geom['coordinates'] as List;
         return coords.map<LatLng>((c) {
           final lng = (c[0] as num).toDouble();
@@ -146,10 +160,14 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
     }
 
     // case B: GeoJSON (features[0].geometry.coordinates)
-    if (data is Map && data['features'] is List && (data['features'] as List).isNotEmpty) {
+    if (data is Map &&
+        data['features'] is List &&
+        (data['features'] as List).isNotEmpty) {
       final f0 = (data['features'] as List).first;
       final geom = f0['geometry'];
-      if (geom is Map && geom['type'] == 'LineString' && geom['coordinates'] is List) {
+      if (geom is Map &&
+          geom['type'] == 'LineString' &&
+          geom['coordinates'] is List) {
         final coords = geom['coordinates'] as List;
         return coords.map<LatLng>((c) {
           final lng = (c[0] as num).toDouble();
@@ -164,10 +182,13 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
 
   // Google Directions API 호출 (과금주의)
   Future<String> _fetchEncodedPolyline(
-      LatLng s, LatLng d, TravelMode mode, String apiKey,
-      ) async {
+    LatLng s,
+    LatLng d,
+    TravelMode mode,
+    String apiKey,
+  ) async {
     final origin = '${s.latitude},${s.longitude}';
-    final dest   = '${d.latitude},${d.longitude}';
+    final dest = '${d.latitude},${d.longitude}';
     final url =
         'https://maps.googleapis.com/maps/api/directions/json?origin=$origin&destination=$dest&mode=${_mode(mode)}&key=$apiKey&language=ko';
     final res = await http.get(Uri.parse(url));
@@ -182,11 +203,15 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
 
   String _mode(TravelMode m) {
     switch (m) {
-      case TravelMode.walking:   return 'walking';
-      case TravelMode.bicycling: return 'bicycling';
-      case TravelMode.transit:   return 'transit';
+      case TravelMode.walking:
+        return 'walking';
+      case TravelMode.bicycling:
+        return 'bicycling';
+      case TravelMode.transit:
+        return 'transit';
       case TravelMode.driving:
-      default:                   return 'driving';
+      default:
+        return 'driving';
     }
   }
 
@@ -199,8 +224,8 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
         maxLng = _route.first.longitude;
 
     for (final p in _route) {
-      if (p.latitude  < minLat) minLat = p.latitude;
-      if (p.latitude  > maxLat) maxLat = p.latitude;
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
       if (p.longitude < minLng) minLng = p.longitude;
       if (p.longitude > maxLng) maxLng = p.longitude;
     }
@@ -216,11 +241,21 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('코스 상세')),
+      appBar: AppBar(
+        leading: IconButton(
+          padding: const EdgeInsets.only(left: 8),
+          onPressed: () => Navigator.maybePop(context),
+          icon: Icon(Icons.arrow_back_ios),
+        ),
+        title: const Text('코스 상세'),
+      ),
       body: Stack(
         children: [
           GoogleMap(
-            initialCameraPosition: CameraPosition(target: widget.start, zoom: 12),
+            initialCameraPosition: CameraPosition(
+              target: widget.start,
+              zoom: 12,
+            ),
             onMapCreated: (c) {
               _map = c;
               if (!_loading && _route.isNotEmpty) _fitBounds();
@@ -232,27 +267,35 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
             compassEnabled: true,
             mapToolbarEnabled: false,
           ),
-          if (_loading)
-            const Center(child: CircularProgressIndicator()),
+          if (_loading) const Center(child: CircularProgressIndicator()),
           if (_error != null)
             Positioned(
-              left: 12, right: 12, bottom: 20,
+              left: 12,
+              right: 12,
+              bottom: 20,
               child: Material(
                 color: Colors.red.withOpacity(.92),
                 borderRadius: BorderRadius.circular(12),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Text(_error!, style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.white),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
             ),
         ],
       ),
-      floatingActionButton: _route.isEmpty ? null : FloatingActionButton.extended(
-        onPressed: _fitBounds,
-        icon: const Icon(Icons.center_focus_strong),
-        label: const Text('전체 보기'),
-      ),
+      floatingActionButton:
+          _route.isEmpty
+              ? null
+              : FloatingActionButton.extended(
+                onPressed: _fitBounds,
+                icon: const Icon(Icons.center_focus_strong),
+                label: const Text('전체 보기'),
+              ),
     );
   }
 }
