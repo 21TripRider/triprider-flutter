@@ -1,19 +1,24 @@
+// lib/screens/Trip/Course_Detail_With_Nearby.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:triprider/screens/Trip/API/Nearby_Api.dart';
 
 import 'package:triprider/screens/Trip/Course_Detailmap.dart';
-import 'package:triprider/screens/Trip/Nearby_Api.dart'; // "전체 보기" 눌렀을 때
 
 
 class CourseDetailWithNearby extends StatefulWidget {
   const CourseDetailWithNearby({
     super.key,
+    // 지도 표시에 필요한 정보
     required this.points,
     required this.start,
     required this.end,
     this.startTitle = '출발',
     this.endTitle = '도착',
+    // 백엔드 조회용 코스 식별자 (카테고리/ID)
+    required this.courseCategory,
+    required this.courseId,
   });
 
   final List<LatLng> points;
@@ -21,6 +26,9 @@ class CourseDetailWithNearby extends StatefulWidget {
   final LatLng end;
   final String startTitle;
   final String endTitle;
+
+  final String courseCategory;
+  final int courseId;
 
   @override
   State<CourseDetailWithNearby> createState() => _CourseDetailWithNearbyState();
@@ -32,23 +40,18 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
   late final Set<Marker> _markers;
   late final LatLngBounds _bounds;
 
-  // 섹션/목록
   NearbyCategory _selected = NearbyCategory.tourist;
   late Future<List<NearbyItem>> _future;
 
   @override
   void initState() {
     super.initState();
-
-    // 폴리라인
     _route = Polyline(
       polylineId: const PolylineId('route'),
       points: widget.points,
       color: Colors.blue,
       width: 6,
     );
-
-    // 시작/끝 마커
     _markers = {
       Marker(
         markerId: const MarkerId('start'),
@@ -61,9 +64,18 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
         infoWindow: InfoWindow(title: widget.endTitle),
       ),
     };
-
     _bounds = _computeBounds(widget.points);
-    _future = NearbyApi.fetch(_selected, _bounds); // 목업 호출
+
+    // ✅ 백엔드에서 섹터별 장소 조회
+    _future = NearbyApi.fetchByCourse(
+      _selected,
+      courseCategory: widget.courseCategory,
+      courseId: widget.courseId,
+      radius: 3000,
+      size: 8,
+      mode: 'sme',
+      count: 5,
+    );
   }
 
   @override
@@ -75,13 +87,13 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
         leading: IconButton(
           padding: const EdgeInsets.only(left: 8),
           onPressed: () => Navigator.maybePop(context),
-          icon: Icon(Icons.arrow_back_ios),
+          icon: const Icon(Icons.arrow_back_ios),
         ),
         title: const Text('코스 상세'),
       ),
       body: Column(
         children: [
-          // ─── 상단 1/3 지도 ─────────────────────────────────────────────
+          // 상단 1/3 지도
           SizedBox(
             height: h / 3,
             child: Stack(
@@ -90,7 +102,6 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
                   initialCameraPosition: CameraPosition(target: widget.start, zoom: 12),
                   onMapCreated: (c) {
                     _map = c;
-                    // 맵 생성 후 경로 전체가 보이도록
                     WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
                   },
                   polylines: {_route},
@@ -98,8 +109,6 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
                 ),
-
-                // "전체 보기" 버튼
                 Positioned(
                   right: 16,
                   bottom: 16,
@@ -132,7 +141,7 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
             ),
           ),
 
-          // ─── 섹션 탭(칩) ──────────────────────────────────────────────
+          // 섹터 칩 (백엔드 7개 고정)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
@@ -147,7 +156,11 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
                     onSelected: (_) {
                       setState(() {
                         _selected = cat;
-                        _future = NearbyApi.fetch(cat, _bounds); // 새로 로드(목업)
+                        _future = NearbyApi.fetchByCourse(
+                          _selected,
+                          courseCategory: widget.courseCategory,
+                          courseId: widget.courseId,
+                        );
                       });
                     },
                   ),
@@ -156,7 +169,7 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
             ),
           ),
 
-          // ─── 리스트 영역(확장) ────────────────────────────────────────
+          // 리스트
           Expanded(
             child: FutureBuilder<List<NearbyItem>>(
               future: _future,
@@ -168,10 +181,7 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
                   return Center(child: Text('로드 실패: ${snap.error}'));
                 }
                 final items = snap.data ?? const [];
-
-                if (items.isEmpty) {
-                  return const Center(child: Text('표시할 장소가 없습니다.'));
-                }
+                if (items.isEmpty) return const Center(child: Text('표시할 장소가 없습니다.'));
 
                 return ListView.separated(
                   padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
@@ -181,10 +191,7 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
                     final p = items[i];
                     return _PoiTile(
                       item: p,
-                      onTap: () {
-                        // 지도에서 해당 포인트로 포커스
-                        _focusTo(LatLng(p.lat, p.lng));
-                      },
+                      onTap: () => _focusTo(LatLng(p.lat, p.lng)),
                     );
                   },
                 );
@@ -196,30 +203,22 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
     );
   }
 
-  // 경로 전체가 보이도록 카메라 맞추기
   Future<void> _fitBounds() async {
     if (_map == null) return;
     await Future.delayed(const Duration(milliseconds: 80));
     try {
-      await _map!.animateCamera(
-        CameraUpdate.newLatLngBounds(_bounds, 32), // padding
-      );
+      await _map!.animateCamera(CameraUpdate.newLatLngBounds(_bounds, 32));
     } catch (_) {
-      // 첫 프레임 전에 호출될 수 있어서 한 번 더 시도
       await Future.delayed(const Duration(milliseconds: 160));
-      await _map!.animateCamera(
-        CameraUpdate.newLatLngBounds(_bounds, 32),
-      );
+      await _map!.animateCamera(CameraUpdate.newLatLngBounds(_bounds, 32));
     }
   }
 
-  // 특정 지점으로 포커스
   Future<void> _focusTo(LatLng p) async {
     if (_map == null) return;
     await _map!.animateCamera(CameraUpdate.newCameraPosition(
       CameraPosition(target: p, zoom: 14),
     ));
-    // 임시 마커 찍기(이미 있으면 교체)
     setState(() {
       _markers.removeWhere((m) => m.markerId.value == 'poi');
       _markers.add(Marker(markerId: const MarkerId('poi'), position: p));
@@ -241,15 +240,12 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// 리스트 타일 (썸네일 + 텍스트)
-// ──────────────────────────────────────────────────────────────────────────────
 class _PoiTile extends StatelessWidget {
   const _PoiTile({required this.item, required this.onTap});
   final NearbyItem item;
   final VoidCallback onTap;
 
-  bool get _isNet => item.thumbUrl?.startsWith('http') == true;
+  bool get _hasThumb => (item.thumbUrl?.startsWith('http') ?? false);
 
   @override
   Widget build(BuildContext context) {
@@ -265,9 +261,12 @@ class _PoiTile extends StatelessWidget {
             children: [
               AspectRatio(
                 aspectRatio: 1,
-                child: _isNet
-                    ? Image.network(item.thumbUrl!, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _placeholder())
+                child: _hasThumb
+                    ? Image.network(
+                  item.thumbUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _placeholder(),
+                )
                     : _placeholder(),
               ),
               const SizedBox(width: 12),
@@ -291,8 +290,10 @@ class _PoiTile extends StatelessWidget {
                       ),
                       if (item.distanceM != null) ...[
                         const Spacer(),
-                        Text('${(item.distanceM! / 1000).toStringAsFixed(1)} km',
-                            style: const TextStyle(color: Colors.black45)),
+                        Text(
+                          '${(item.distanceM! / 1000).toStringAsFixed(1)} km',
+                          style: const TextStyle(color: Colors.black45),
+                        ),
                       ],
                     ],
                   ),
@@ -302,7 +303,7 @@ class _PoiTile extends StatelessWidget {
               const Padding(
                 padding: EdgeInsets.only(right: 8.0),
                 child: Icon(Icons.chevron_right),
-              )
+              ),
             ],
           ),
         ),
