@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:triprider/screens/RiderGram/Api_client.dart';
 import 'package:triprider/screens/RiderGram/Post.dart';
+import 'package:triprider/screens/RiderGram/Post_Detail.dart'; // ★ 상세화면 import
 
 class MyUploadScreen extends StatefulWidget {
   const MyUploadScreen({super.key});
@@ -39,6 +40,18 @@ class _MyUploadScreenState extends State<MyUploadScreen> {
   Future<void> _refresh() async {
     await _load();
     if (mounted) setState(() {});
+  }
+
+  Future<void> _openDetail(PostModel p) async {
+    // 상세에서 좋아요/댓글 변경했을 수 있으니 복귀 후 새로고침
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PostDetailScreen(postId: p.id, initial: p),
+      ),
+    );
+    if (!mounted) return;
+    _refresh();
   }
 
   Future<void> _delete(PostModel p, int index) async {
@@ -102,6 +115,7 @@ class _MyUploadScreenState extends State<MyUploadScreen> {
                 final post = _myPosts[index];
                 return _MyPostCard(
                   post: post,
+                  onTap: () => _openDetail(post),     // ★ 탭 시 상세로
                   onDelete: () => _delete(post, index),
                 );
               },
@@ -116,10 +130,12 @@ class _MyUploadScreenState extends State<MyUploadScreen> {
 class _MyPostCard extends StatelessWidget {
   const _MyPostCard({
     required this.post,
+    required this.onTap,
     required this.onDelete,
   });
 
   final PostModel post;
+  final VoidCallback onTap;
   final VoidCallback onDelete;
 
   List<String> _splitTags(String? hashtags) {
@@ -144,136 +160,138 @@ class _MyPostCard extends StatelessWidget {
     final hasImage = (post.imageUrl != null && post.imageUrl!.trim().isNotEmpty);
     final tags = _splitTags(post.hashtags);
 
-    // 공통 여백
     const double gap = 14;
     const double thumb = 120;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 상단 행: 썸네일 + (오른쪽 정보 영역)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Material( // ★ InkWell 효과를 위한 Material
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap, // ★ 전체 카드 탭 가능
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 썸네일
-              if (hasImage)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.network(
-                    post.imageUrl!,
-                    width: thumb,
-                    height: thumb,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: thumb,
-                      height: thumb,
-                      color: const Color(0xFFECECEC),
-                      alignment: Alignment.center,
-                      child: const Text('이미지 로드 실패', style: TextStyle(fontSize: 12, color: Colors.black45)),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (hasImage)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.network(
+                        post.imageUrl!,
+                        width: thumb,
+                        height: thumb,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: thumb,
+                          height: thumb,
+                          color: const Color(0xFFECECEC),
+                          alignment: Alignment.center,
+                          child: const Text('이미지 로드 실패',
+                              style: TextStyle(fontSize: 12, color: Colors.black45)),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              if (hasImage) const SizedBox(width: gap),
+                  if (hasImage) const SizedBox(width: gap),
 
-              // 오른쪽 정보 영역: 제목 / 위치 / 해시태그 / 휴지통
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 제목 + 휴지통
-                    Row(
+                  // 오른쪽 영역
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            _titleFromContent(post.content),
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        // 제목 + 휴지통
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _titleFromContent(post.content),
+                                style: const TextStyle(
+                                    fontSize: 18, fontWeight: FontWeight.w700),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: onDelete,
+                              icon: const Icon(Icons.delete_outline, color: Colors.black54),
+                              tooltip: '삭제',
+                            ),
+                          ],
+                        ),
+
+                        // 위치
+                        if ((post.location ?? '').isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6, right: 8),
+                            child: Text('📍 ${post.location!}',
+                                style: const TextStyle(fontSize: 13, color: Colors.black38),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
                           ),
-                        ),
-                        IconButton(
-                          onPressed: onDelete,
-                          icon: const Icon(Icons.delete_outline, color: Colors.black54),
-                          tooltip: '삭제',
-                        ),
+
+                        // 해시태그
+                        if (tags.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8, right: 8),
+                            child: Wrap(
+                              spacing: 10,
+                              runSpacing: 6,
+                              children: tags
+                                  .map((t) => Text(
+                                t.startsWith('#') ? t : '#$t',
+                                style: const TextStyle(
+                                  color: Color(0xFF2D79FF),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ))
+                                  .toList(),
+                            ),
+                          ),
                       ],
                     ),
-
-                    // 위치 (제목 바로 아래)
-                    if ((post.location ?? '').isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6, right: 8),
-                        child: Text('📍 ${post.location!}',
-                            style: const TextStyle(fontSize: 13, color: Colors.black38),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-
-                    // 해시태그 (위치 아래) — 이미지 오른쪽 영역에 배치
-                    if (tags.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8, right: 8),
-                        child: Wrap(
-                          spacing: 10,
-                          runSpacing: 6,
-                          children: tags
-                              .map((t) => Text(
-                            t.startsWith('#') ? t : '#$t',
-                            style: const TextStyle(
-                              color: Color(0xFF2D79FF),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ))
-                              .toList(),
-                        ),
-                      ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
 
-          const SizedBox(height: 10),
+              const SizedBox(height: 10),
 
-          // 하단: 좋아요/댓글 카운트 (회색)
-          Row(
-            children: [
+              // 하단 카운트
               Row(
                 children: [
                   const Icon(Icons.favorite_border, size: 22, color: Colors.black26),
                   const SizedBox(width: 6),
-                  Text(
-                    '${post.likeCount}',
-                    style: const TextStyle(fontSize: 14, color: Colors.black38, fontWeight: FontWeight.w600),
+                  Text('${post.likeCount}',
+                      style: const TextStyle(
+                          fontSize: 14, color: Colors.black38, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 18),
+                  FutureBuilder<int>(
+                    future: _fetchCommentCount(),
+                    builder: (context, snap) {
+                      final count = (snap.hasData) ? snap.data! : 0;
+                      return Row(
+                        children: [
+                          const Icon(Icons.mode_comment_outlined,
+                              size: 20, color: Colors.black26),
+                          const SizedBox(width: 6),
+                          Text('$count',
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.black38,
+                                  fontWeight: FontWeight.w600)),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
-              const SizedBox(width: 18),
-              FutureBuilder<int>(
-                future: _fetchCommentCount(),
-                builder: (context, snap) {
-                  final count = (snap.hasData) ? snap.data! : 0;
-                  return Row(
-                    children: [
-                      const Icon(Icons.mode_comment_outlined, size: 20, color: Colors.black26),
-                      const SizedBox(width: 6),
-                      Text(
-                        '$count',
-                        style: const TextStyle(fontSize: 14, color: Colors.black38, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  );
-                },
-              ),
+
+              const SizedBox(height: 12),
             ],
           ),
-
-          const SizedBox(height: 12),
-        ],
+        ),
       ),
     );
   }

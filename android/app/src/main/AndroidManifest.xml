@@ -21,6 +21,11 @@
 
         android:enableOnBackInvokedCallback="true">
 
+        <!-- ✅ Kakao SDK App Key (지도/로그인 공통) -->
+        <meta-data
+            android:name="com.kakao.sdk.AppKey"
+            android:value="857552ba819176e757da967cea31fc13" />
+
         <!-- Google Maps API Key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"

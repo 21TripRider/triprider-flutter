@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 // 기존 위젯
 import 'package:triprider/screens/Trip/Custom_Riding_Course_Screen.dart';
+import 'package:triprider/screens/Trip/Riding_Course_Card.dart';
 import 'package:triprider/screens/Trip/widgets/P_Course_Card.dart';
 import 'package:triprider/widgets/Bottom_App_Bar.dart';
 
@@ -135,57 +136,6 @@ class Select_Section extends StatelessWidget {
  * DTO
  * ========================= */
 
-class RidingCourseCard {
-  final int id;
-  final String category; // "coastal-course" / "inland-course" / "udo-course"
-  final String title;
-  final String? coverImageUrl;
-  final int totalDistanceMeters;
-  final double startLat;
-  final double startLng;
-  final int? likeCount;
-  final bool? liked;
-
-  RidingCourseCard({
-    required this.id,
-    required this.category,
-    required this.title,
-    required this.coverImageUrl,
-    required this.totalDistanceMeters,
-    required this.startLat,
-    required this.startLng,
-    this.likeCount,
-    this.liked,
-  });
-
-  factory RidingCourseCard.fromJson(Map<String, dynamic> j) {
-    return RidingCourseCard(
-      id: (j['id'] as num).toInt(),
-      category: j['category'] as String,
-      title: (j['title'] as String?) ?? 'Riding Course',
-      coverImageUrl: j['coverImageUrl'] as String?,
-      totalDistanceMeters: (j['totalDistanceMeters'] as num?)?.toInt() ?? 0,
-      startLat: (j['startLat'] as num?)?.toDouble() ?? 0,
-      startLng: (j['startLng'] as num?)?.toDouble() ?? 0,
-      likeCount: (j['likeCount'] as num?)?.toInt(),
-      liked: j['liked'] as bool?,
-    );
-  }
-
-  RidingCourseCard copyWith({int? likeCount, bool? liked}) {
-    return RidingCourseCard(
-      id: id,
-      category: category,
-      title: title,
-      coverImageUrl: coverImageUrl,
-      totalDistanceMeters: totalDistanceMeters,
-      startLat: startLat,
-      startLng: startLng,
-      likeCount: likeCount ?? this.likeCount,
-      liked: liked ?? this.liked,
-    );
-  }
-}
 
 /* =========================
  * 인기 코스 (커버/상세 공통 유틸 사용)

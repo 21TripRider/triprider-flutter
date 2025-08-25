@@ -182,11 +182,11 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
 
   // Google Directions API 호출 (과금주의)
   Future<String> _fetchEncodedPolyline(
-    LatLng s,
-    LatLng d,
-    TravelMode mode,
-    String apiKey,
-  ) async {
+      LatLng s,
+      LatLng d,
+      TravelMode mode,
+      String apiKey,
+      ) async {
     final origin = '${s.latitude},${s.longitude}';
     final dest = '${d.latitude},${d.longitude}';
     final url =
@@ -289,13 +289,13 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
         ],
       ),
       floatingActionButton:
-          _route.isEmpty
-              ? null
-              : FloatingActionButton.extended(
-                onPressed: _fitBounds,
-                icon: const Icon(Icons.center_focus_strong),
-                label: const Text('전체 보기'),
-              ),
+      _route.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+        onPressed: _fitBounds,
+        icon: const Icon(Icons.center_focus_strong),
+        label: const Text('전체 보기'),
+      ),
     );
   }
 }

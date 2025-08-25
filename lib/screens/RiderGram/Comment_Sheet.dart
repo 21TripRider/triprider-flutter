@@ -1,4 +1,3 @@
-// lib/screens/RiderGram/Comment_Sheet.dart
 import 'package:flutter/material.dart';
 import 'package:triprider/screens/RiderGram/api_comment.dart';
 import 'package:triprider/screens/RiderGram/Comment_Model.dart';
@@ -18,6 +17,9 @@ class _CommentSheetState extends State<CommentSheet> {
   late Future<List<CommentModel>> _future;
   final _items = <CommentModel>[];
   bool _sending = false;
+
+  // ✅ 중복 탭 방지용(토글 중인 댓글 id)
+  final _liking = <int>{};
 
   @override
   void initState() {
@@ -66,6 +68,45 @@ class _CommentSheetState extends State<CommentSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('삭제 실패: $e')),
       );
+    }
+  }
+
+  // ✅ 좋아요 토글
+  Future<void> _toggleLike(CommentModel c) async {
+    if (_liking.contains(c.id)) return;
+    setState(() => _liking.add(c.id));
+
+    try {
+      int newCount;
+      bool newLiked;
+
+      if (c.likedByMe) {
+        newCount = await CommentApi.unlike(widget.postId, c.id);
+        newLiked = false;
+      } else {
+        newCount = await CommentApi.like(widget.postId, c.id);
+        newLiked = true;
+      }
+
+      // (선택) 서버 카운트 한번 더 확인하고 싶다면:
+      // final verified = await CommentApi.count(widget.postId, c.id);
+      // newCount = verified;
+
+      final idx = _items.indexWhere((e) => e.id == c.id);
+      if (idx >= 0) {
+        _items[idx] = _items[idx].copyWith(
+          likeCount: newCount,
+          likedByMe: newLiked,
+        );
+      }
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('처리 실패: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _liking.remove(c.id));
     }
   }
 
@@ -155,6 +196,7 @@ class _CommentSheetState extends State<CommentSheet> {
                                         ),
                                       ),
                                       const SizedBox(width: 10),
+                                      // 본문
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,6 +225,35 @@ class _CommentSheetState extends State<CommentSheet> {
                                             ),
                                           ],
                                         ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // ✅ 좋아요 버튼 + 카운트
+                                      Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            visualDensity: VisualDensity.compact,
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            onPressed: _liking.contains(c.id)
+                                                ? null
+                                                : () => _toggleLike(c),
+                                            icon: Icon(
+                                              c.likedByMe ? Icons.favorite : Icons.favorite_border,
+                                              size: 22,
+                                              color: c.likedByMe ? Colors.red : Colors.grey[700],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${c.likeCount}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[700],
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   );
@@ -265,8 +336,7 @@ class _CommentSheetState extends State<CommentSheet> {
                               onTap: _sending ? null : _send,
                               borderRadius: BorderRadius.circular(20),
                               child: CircleAvatar(
-                                backgroundColor:
-                                _sending ? Colors.grey[300] : Colors.black,
+                                backgroundColor: _sending ? Colors.grey[300] : Colors.black,
                                 child: Icon(
                                   Icons.arrow_upward,
                                   color: _sending ? Colors.black54 : Colors.white,

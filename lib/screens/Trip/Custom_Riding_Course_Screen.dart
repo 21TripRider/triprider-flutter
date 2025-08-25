@@ -1,73 +1,59 @@
-import 'package:flutter/cupertino.dart';
+// lib/screens/trip/Custom_Riding_Course.dart
 import 'package:flutter/material.dart';
+import 'package:triprider/screens/Trip/widgets/My_Course_Card.dart';
 import 'package:triprider/screens/trip/Custom_Choice_Screen.dart';
-import 'package:triprider/screens/trip/widgets/My_Course_Card.dart';
 
 class CustomRidingCourse extends StatefulWidget {
   const CustomRidingCourse({super.key});
-
   @override
-  State<CustomRidingCourse> createState() => _CustomRidingCourseState();
+  State<CustomRidingCourse> createState() => _CustomRiding_Course_State();
 }
 
-class _CustomRidingCourseState extends State<CustomRidingCourse> {
+class _CustomRiding_Course_State extends State<CustomRidingCourse> {
+  void _onCreateCoursePressed() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CustomChoiceScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 15), // 전체 좌우 패딩 통일
+      padding: const EdgeInsets.symmetric(horizontal: 15),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /// 상단 "나의 취향을 담은 여행 코스" 버튼
-          Create_Course_Button(custom_course_pressed: Custom_Course_Pressed),
-
-          const SizedBox(height: 50),
-
-          /// "여행 코스" 제목
+          CreateCourseButton(onTap: _onCreateCoursePressed), // ← 이름 통일
+          const SizedBox(height: 24),
           const Padding(
             padding: EdgeInsets.only(bottom: 20),
             child: Text(
               '여행 코스',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 23,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(color: Colors.black, fontSize: 23, fontWeight: FontWeight.w600),
             ),
           ),
-
-          /// 나의 여행 코스 카드
-          MyCourseCard(),
-          MyCourseCard(),
-          MyCourseCard(),
+          // 리스트는 부모 스크롤에 종속
+          const MyCourseCardList(
+            shrinkWrap: true,
+            physics: NeverScrollableScrollPhysics(),
+          ),
         ],
-      ),
-    );
-  }
-
-  void Custom_Course_Pressed() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (BuildContext context) {
-          return CustomChoiceScreen();
-        },
       ),
     );
   }
 }
 
-///'나의 취향을 담은 여행코스 생성' 버튼
-class Create_Course_Button extends StatelessWidget {
-  final VoidCallback custom_course_pressed;
-
-  const Create_Course_Button({super.key, required this.custom_course_pressed});
+class CreateCourseButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const CreateCourseButton({super.key, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: custom_course_pressed,
+        onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         splashColor: Colors.black12,
         child: Ink(
@@ -77,45 +63,22 @@ class Create_Course_Button extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // ← 텍스트는 Expanded로 감싸 폭에 맞춰 줄바꿈
               Expanded(
                 child: Text.rich(
-                  TextSpan(children: [
-                    const TextSpan(
-                      text: '나의 취향을 담은 ',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const TextSpan(
-                      text: '여행 코스',
-                      style: TextStyle(
-                        color: Color(0XFFFF4E6B),
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const TextSpan(
-                      text: '를 생성해보세요',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ]),
+                  const TextSpan(
+                    children: [
+                      TextSpan(text: '나의 취향을 담은 ', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                      TextSpan(text: '여행 코스', style: TextStyle(color: Color(0XFFFF4E6B), fontSize: 20, fontWeight: FontWeight.w600)),
+                      TextSpan(text: '를 생성해보세요', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
                   textAlign: TextAlign.center,
-                  maxLines: 2,       // 필요 시 2줄까지
-                  overflow: TextOverflow.fade,
-                  softWrap: true,
+                  maxLines: 2,
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.arrow_forward_ios, size: 20, color: Colors.black),
+              const Icon(Icons.arrow_forward_ios, size: 20),
             ],
           ),
         ),
@@ -123,4 +86,3 @@ class Create_Course_Button extends StatelessWidget {
     );
   }
 }
-

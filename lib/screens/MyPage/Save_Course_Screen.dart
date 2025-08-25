@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 
 // API
 import 'package:triprider/screens/RiderGram/Api_client.dart';
-import 'package:triprider/screens/Trip/Shared/Open_Course_Detail.dart';
 
-// 공통 유틸(이미지 URL 처리 & 지도 상세로 이동)
+// ⬇️ 이거 하나만 유지(웹뷰 헬퍼)
+import 'package:triprider/screens/Trip/shared/open_course_detail.dart';
+
+// 공통 유틸(이미지 URL 처리 & 커버)
 import 'package:triprider/screens/Trip/shared/course_cover_resolver.dart';
 
 class SaveCourseScreen extends StatefulWidget {
@@ -35,13 +37,11 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
         _error = null;
       });
 
-      // 전체 카드 요청 → 내가 누른 것만 필터
       final res = await ApiClient.get('/api/travel/riding/cards');
       final list = (jsonDecode(res.body) as List).cast<Map<String, dynamic>>();
       final all = list.map(_LikedCourse.fromJson).toList();
       _items = all.where((e) => e.liked == true).toList();
 
-      // 커버 사전탐색(인기/거리순과 동일 방식)
       _covers = await CourseCoverResolver.prefetch<_LikedCourse>(
         _items,
         cover: (c) => c.coverImageUrl,
@@ -61,8 +61,6 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
   Future<void> _toggleLike(int index) async {
     final item = _items[index];
 
-    // 현재 화면은 "좋아요한 코스"이므로, 하트를 끄면 리스트에서 제거되는 UX가 자연스러움
-    // 낙관적 제거
     setState(() {
       _items.removeAt(index);
       _covers.removeAt(index);
@@ -71,9 +69,7 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
     try {
       final path = '/api/travel/riding/${item.category}/${item.id}/likes';
       await ApiClient.delete(path); // unlike
-      // 성공 시 끝. (필요하면 스낵바로 알림)
     } catch (e) {
-      // 실패 시 롤백
       if (!mounted) return;
       setState(() {
         _items.insert(index, item);
@@ -101,24 +97,16 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
   }
 
   Widget _buildBody() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null) {
-      return Center(child: Text('불러오기 실패: $_error'));
-    }
-    if (_items.isEmpty) {
-      return const Center(child: Text('좋아요한 코스가 없습니다.'));
-    }
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text('불러오기 실패: $_error'));
+    if (_items.isEmpty) return const Center(child: Text('좋아요한 코스가 없습니다.'));
 
     return ListView(
       children: [
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Text(
-            '내가 좋아요한 코스',
-            style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
-          ),
+          child: Text('내가 좋아요한 코스',
+              style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
         ),
         GridView.builder(
           shrinkWrap: true,
@@ -128,7 +116,7 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
             crossAxisCount: 2,
             mainAxisSpacing: 16,
             crossAxisSpacing: 12,
-            childAspectRatio: 0.86, // 제목 2줄 여유
+            childAspectRatio: 0.86,
           ),
           itemCount: _items.length,
           itemBuilder: (context, i) {
@@ -144,7 +132,7 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
                     context,
                     c.category,
                     c.id,
-                    mode: CourseDetailMode.fullMap,
+                    mode: CourseDetailMode.fullMap, // 웹뷰 전체화면 지도 오픈
                   ),
                   borderRadius: BorderRadius.circular(14),
                   child: AspectRatio(
@@ -173,8 +161,6 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
                               height: double.infinity,
                               fit: BoxFit.cover,
                             ),
-
-                          // 하단 그라데이션
                           Positioned.fill(
                             child: IgnorePointer(
                               ignoring: true,
@@ -192,19 +178,13 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
                               ),
                             ),
                           ),
-
-                          // ♥ 버튼(해제)
                           Positioned(
                             left: 10,
                             bottom: 10,
                             child: InkWell(
                               onTap: () => _toggleLike(i),
                               borderRadius: BorderRadius.circular(20),
-                              child: const Icon(
-                                Icons.favorite,
-                                color: Colors.red,
-                                size: 30,
-                              ),
+                              child: const Icon(Icons.favorite, color: Colors.red, size: 30),
                             ),
                           ),
                         ],
@@ -231,7 +211,6 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
   }
 }
 
-/// 이 화면에서 쓰는 가벼운 카드 모델
 class _LikedCourse {
   final int id;
   final String category;

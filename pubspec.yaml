@@ -51,6 +51,8 @@ dependencies:
   webview_flutter: ^4.7.0
 
   kakao_flutter_sdk_user: ^1.9.7+3 # 카카오 로그인 API 패키지
+  kakao_map_plugin: ^0.3.7
+
 
 
   # The following adds the Cupertino Icons font to your application.
