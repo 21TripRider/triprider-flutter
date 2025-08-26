@@ -100,7 +100,6 @@ class RentshopList extends StatelessWidget {
       appBar: const RentAppBar(),
       body: Column(
         children: [
-          const Sort(), // 현재는 UI만. 실제 정렬은 추후 연동
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -211,58 +210,8 @@ class _RentAppBarState extends State<RentAppBar> {
         onPressed: () => Navigator.of(context).pop(),
         icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.search, color: Colors.black),
-          onPressed: () {},
-        ),
-      ],
+
     );
   }
 }
 
-/// 정렬 드롭다운 (현재는 UI만 동작)
-class Sort extends StatefulWidget {
-  const Sort({super.key});
-
-  @override
-  State<Sort> createState() => _SortState();
-}
-
-class _SortState extends State<Sort> {
-  String selectedSort = '거리순';
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 8, 16, 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          PopupMenuButton<String>(
-            onSelected: (String value) {
-              setState(() {
-                selectedSort = value;
-              });
-              // TODO: 실제 정렬 로직은 나중에 리스트 상태와 연동
-            },
-            itemBuilder: (BuildContext context) => const [
-              PopupMenuItem(value: '거리순', child: Text('거리순')),
-              PopupMenuItem(value: '인기순', child: Text('인기순')),
-            ],
-            child: Row(
-              children: [
-                Text(
-                  selectedSort,
-                  style: const TextStyle(fontSize: 14, color: Colors.black),
-                ),
-                const SizedBox(width: 4),
-                const Icon(Icons.keyboard_arrow_down, color: Colors.black),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
