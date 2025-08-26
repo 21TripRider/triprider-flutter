@@ -52,10 +52,6 @@ class _LoginscreenState extends State<Loginscreen> {
               onClear: () => passwordController.clear(),
               obscure: true,
             ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(onPressed: () {}, child: const Text('비밀번호 찾기')),
-            ),
             LoginScreenButton(
               T: 20,
               B: 80,

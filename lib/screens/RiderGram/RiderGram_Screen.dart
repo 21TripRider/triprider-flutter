@@ -7,6 +7,7 @@ import 'package:triprider/screens/RiderGram/Post.dart';
 import 'package:triprider/screens/RiderGram/Upload.dart';
 import 'package:triprider/screens/RiderGram/Search.dart';
 import 'package:triprider/widgets/Bottom_App_Bar.dart';
+import 'package:triprider/screens/RiderGram/Public_Profile_Screen.dart';
 
 class RidergramScreen extends StatefulWidget {
   const RidergramScreen({super.key});
@@ -143,26 +144,44 @@ class _PostCard extends StatelessWidget {
     required this.onCommentCountChanged,
   });
 
+  void _openProfile(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PublicProfileScreen(
+          userId: post.writerId,
+          nickname: post.writer,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasImage = (post.imageUrl != null && post.imageUrl!.trim().isNotEmpty);
+    final ImageProvider avatar = (post.writerProfileImage != null && post.writerProfileImage!.isNotEmpty)
+        ? NetworkImage(post.writerProfileImage!)
+        : const AssetImage('assets/image/logo.png');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 작성자
-        Row(
-          children: [
-            const Icon(Icons.account_circle, size: 25),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(post.writer, style: const TextStyle(fontSize: 17)),
-            ),
-          ],
+        // 작성자(아바타 + 이름) --- 탭하면 공개 프로필
+        InkWell(
+          onTap: () => _openProfile(context),
+          child: Row(
+            children: [
+              CircleAvatar(radius: 16, backgroundImage: avatar),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(post.writer, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
 
-        // 이미지
+        // [1] 이미지
         if (hasImage)
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
@@ -178,54 +197,19 @@ class _PostCard extends StatelessWidget {
             ),
           ),
 
-        // 액션바 (좋아요 + 댓글)
-        Row(
-          children: [
-            IconButton(
-              onPressed: onToggleLike,
-              icon: Icon(
-                post.liked ? Icons.favorite : Icons.favorite_border,
-                color: post.liked ? Colors.red : null,
-              ),
-            ),
-            Text('${post.likeCount}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+        // [2] 본문(이미지 바로 아래)
+        if (post.content.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(post.content),
+        ],
 
-            const SizedBox(width: 12),
-            IconButton(
-              icon: const Icon(Icons.mode_comment_outlined),
-              onPressed: () async { // ✅ async로 변경
-                final newCount = await showModalBottomSheet<int>(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (_) => CommentSheet(postId: post.id),
-                );
-                if (newCount != null) {
-                  onCommentCountChanged(newCount); // ✅ 최신 개수 반영
-                }
-              },
-            ),
-            Text('${post.commentCount}',
-                style: const TextStyle(fontSize: 14, color: Colors.grey)),
-          ],
-        ),
-
-        // 본문
-        if (post.content.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(post.content),
-          ),
-
-        // 위치
-        if ((post.location ?? '').isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text('📍 ${post.location!}', style: const TextStyle(color: Colors.grey)),
-          ),
-
-        // 태그
-        if ((post.hashtags ?? '').isNotEmpty)
+        // 위치/태그 (원래 순서 유지)
+        if ((post.location ?? '').isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text('📍 ${post.location!}', style: const TextStyle(color: Colors.grey)),
+        ],
+        if ((post.hashtags ?? '').isNotEmpty) ...[
+          const SizedBox(height: 6),
           Wrap(
             spacing: 10,
             children: (post.hashtags!.trim().split(RegExp(r'\s+')))
@@ -233,7 +217,34 @@ class _PostCard extends StatelessWidget {
                 .map((t) => Text(t, style: const TextStyle(color: Color(0xFF0088FF))))
                 .toList(),
           ),
+        ],
 
+        // [3] 액션바(하트/댓글)
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            IconButton(
+              onPressed: onToggleLike,
+              icon: Icon(post.liked ? Icons.favorite : Icons.favorite_border,
+                  color: post.liked ? Colors.red : null),
+            ),
+            Text('${post.likeCount}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+            const SizedBox(width: 12),
+            IconButton(
+              icon: const Icon(Icons.mode_comment_outlined),
+              onPressed: () async {
+                final newCount = await showModalBottomSheet<int>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => CommentSheet(postId: post.id),
+                );
+                if (newCount != null) onCommentCountChanged(newCount);
+              },
+            ),
+            Text('${post.commentCount}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+          ],
+        ),
         const SizedBox(height: 24),
       ],
     );

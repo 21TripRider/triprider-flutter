@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:triprider/screens/RiderGram/Api_client.dart';
 import 'package:triprider/screens/RiderGram/Comment_Sheet.dart';
 import 'package:triprider/screens/RiderGram/Post.dart';
+import 'package:triprider/screens/RiderGram/Public_Profile_Screen.dart';
+
+
 
 class PostDetailScreen extends StatefulWidget {
   const PostDetailScreen({
@@ -109,7 +112,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(onPressed: () => Navigator.pop(context), icon: Icon(Icons.arrow_back_ios)),
+        leading: IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back_ios)),
         centerTitle: true,
         title: const Text('게시물'),
       ),
@@ -127,19 +130,35 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 작성자
-              Row(
-                children: [
-                  const Icon(Icons.account_circle, size: 25),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(p.writer, style: const TextStyle(fontSize: 17)),
-                  ),
-                ],
+              // 작성자(아바타 + 이름) - 탭 → 공개 프로필
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PublicProfileScreen(
+                        userId: p.writerId,
+                        nickname: p.writer,
+                      ),
+                    ),
+                  );
+                },
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundImage: (p.writerProfileImage != null && p.writerProfileImage!.isNotEmpty)
+                          ? NetworkImage(p.writerProfileImage!)
+                          : const AssetImage('assets/image/logo.png') as ImageProvider,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(p.writer, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
 
-              // 이미지
+              // [1] 이미지
               if ((p.imageUrl ?? '').trim().isNotEmpty)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
@@ -147,62 +166,49 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     p.imageUrl!,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
-                      height: 200,
-                      alignment: Alignment.center,
-                      color: const Color(0x11000000),
+                      height: 200, alignment: Alignment.center, color: const Color(0x11000000),
                       child: const Text('이미지 로드 실패'),
                     ),
                   ),
                 ),
 
-              // 액션바
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: _toggleLike,
-                    icon: Icon(
-                      p.liked ? Icons.favorite : Icons.favorite_border,
-                      color: p.liked ? Colors.red : null,
-                    ),
-                  ),
-                  Text('${p.likeCount}',
-                      style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    icon: const Icon(Icons.mode_comment_outlined),
-                    onPressed: _openComments,
-                  ),
-                  Text('${p.commentCount}',
-                      style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                ],
-              ),
-
-              // 본문
+              // [2] 본문(이미지 바로 아래)
               if (p.content.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(p.content),
               ],
 
-              // 위치
+              // 위치/해시태그
               if ((p.location ?? '').isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text('📍 ${p.location!}',
-                    style:
-                    const TextStyle(fontSize: 14, color: Colors.grey)),
+                Text('📍 ${p.location!}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
               ],
-
-              // 해시태그
               if ((p.hashtags ?? '').isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 10,
                   children: (p.hashtags!.trim().split(RegExp(r'\s+')))
                       .where((w) => w.isNotEmpty)
-                      .map((t) => Text(t,
-                      style: const TextStyle(color: Color(0xFF0088FF))))
+                      .map((t) => Text(t, style: const TextStyle(color: Color(0xFF0088FF))))
                       .toList(),
                 ),
               ],
+
+              // [3] 액션바
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: _toggleLike,
+                    icon: Icon(p.liked ? Icons.favorite : Icons.favorite_border,
+                        color: p.liked ? Colors.red : null),
+                  ),
+                  Text('${p.likeCount}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                  const SizedBox(width: 12),
+                  IconButton(icon: const Icon(Icons.mode_comment_outlined), onPressed: _openComments),
+                  Text('${p.commentCount}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                ],
+              ),
             ],
           ),
         ),

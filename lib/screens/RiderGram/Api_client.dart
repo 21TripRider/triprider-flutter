@@ -30,24 +30,28 @@ class ApiClient {
     return h;
   }
 
+  // ✅ 외부에서 쓸 수 있는 공개 URI 빌더
+  static Uri publicUri(String path, [Map<String, dynamic>? q]) => _u(path, q);
+
+  // 내부 전용 URI 빌더
   static Uri _u(String path, [Map<String, dynamic>? q]) {
     final base = Uri.parse('$baseUrl$path');
     return q == null
         ? base
         : base.replace(
-          queryParameters: {
-            ...base.queryParameters,
-            ...q.map((k, v) => MapEntry(k, '$v')),
-          },
-        );
+      queryParameters: {
+        ...base.queryParameters,
+        ...q.map((k, v) => MapEntry(k, '$v')),
+      },
+    );
   }
 
   // --- HTTP: JSON 편의 메서드 -----------------------------------------------
   static Future<http.Response> get(
-    String path, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
+      String path, {
+        Map<String, dynamic>? query,
+        Map<String, String>? headers,
+      }) async {
     final res = await _client
         .get(_u(path, query), headers: await _defaultHeaders(override: headers))
         .timeout(_timeout);
@@ -57,54 +61,51 @@ class ApiClient {
 
   /// body가 String이면 그대로 전송, Map/객체면 JSON 인코딩해 전송
   static Future<http.Response> post(
-    String path, {
-    Object? body,
-    Map<String, String>? headers,
-  }) async {
-    final b =
-        (body is String) ? body : (body == null ? null : jsonEncode(body));
+      String path, {
+        Object? body,
+        Map<String, String>? headers,
+      }) async {
+    final b = (body is String) ? body : (body == null ? null : jsonEncode(body));
     final res = await _client
         .post(
-          _u(path),
-          headers: await _defaultHeaders(override: headers),
-          body: b,
-        )
+      _u(path),
+      headers: await _defaultHeaders(override: headers),
+      body: b,
+    )
         .timeout(_timeout);
     _throwIfError(res);
     return res;
   }
 
   static Future<http.Response> put(
-    String path, {
-    Object? body,
-    Map<String, String>? headers,
-  }) async {
-    final b =
-        (body is String) ? body : (body == null ? null : jsonEncode(body));
+      String path, {
+        Object? body,
+        Map<String, String>? headers,
+      }) async {
+    final b = (body is String) ? body : (body == null ? null : jsonEncode(body));
     final res = await _client
         .put(
-          _u(path),
-          headers: await _defaultHeaders(override: headers),
-          body: b,
-        )
+      _u(path),
+      headers: await _defaultHeaders(override: headers),
+      body: b,
+    )
         .timeout(_timeout);
     _throwIfError(res);
     return res;
   }
 
   static Future<http.Response> delete(
-    String path, {
-    Object? body,
-    Map<String, String>? headers,
-  }) async {
-    final b =
-        (body is String) ? body : (body == null ? null : jsonEncode(body));
+      String path, {
+        Object? body,
+        Map<String, String>? headers,
+      }) async {
+    final b = (body is String) ? body : (body == null ? null : jsonEncode(body));
     final res = await _client
         .delete(
-          _u(path),
-          headers: await _defaultHeaders(override: headers),
-          body: b,
-        )
+      _u(path),
+      headers: await _defaultHeaders(override: headers),
+      body: b,
+    )
         .timeout(_timeout);
     _throwIfError(res);
     return res;
@@ -114,9 +115,9 @@ class ApiClient {
   /// 이미지 파일 업로드 → 서버가 `{ "url": "/uploads/xxx.jpg" }` 반환한다고 가정
   /// 반환값은 **절대 URL**.
   static Future<String> uploadImage(
-    File file, {
-    String fieldName = 'file',
-  }) async {
+      File file, {
+        String fieldName = 'file',
+      }) async {
     final uri = _u('/api/upload');
     final req = http.MultipartRequest('POST', uri);
 
@@ -138,7 +139,6 @@ class ApiClient {
   }
 
   // --- 공통 에러 처리 --------------------------------------------------------
-  // ✅ 정상 버전
   static void _throwIfError(http.Response res) {
     if (res.statusCode >= 400) {
       throw HttpException(
@@ -148,5 +148,3 @@ class ApiClient {
     }
   }
 }
-
-
