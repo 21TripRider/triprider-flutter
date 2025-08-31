@@ -18,27 +18,30 @@ class _CustomRiding_Course_State extends State<CustomRidingCourse> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 15),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CreateCourseButton(onTap: _onCreateCoursePressed), // ← 이름 통일
-          const SizedBox(height: 24),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 20),
-            child: Text(
-              '여행 코스',
-              style: TextStyle(color: Colors.black, fontSize: 23, fontWeight: FontWeight.w600),
+    return SingleChildScrollView(   // ✅ Column을 스크롤 가능하게 감쌈
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 15),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CreateCourseButton(onTap: _onCreateCoursePressed),
+            const SizedBox(height: 24),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 20),
+              child: Text(
+                '여행 코스',
+                style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 23,
+                    fontWeight: FontWeight.w600),
+              ),
             ),
-          ),
-          // 리스트는 부모 스크롤에 종속
-          const MyCourseCardList(
-            shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
-          ),
-        ],
+            const MyCourseCardList(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+            ),
+          ],
+        ),
       ),
     );
   }
