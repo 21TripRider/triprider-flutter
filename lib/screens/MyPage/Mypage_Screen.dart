@@ -12,12 +12,20 @@ import 'package:triprider/screens/MyPage/Badge_Style_Screen.dart';
 import 'package:triprider/screens/MyPage/My_Upload_Screen.dart';
 import 'package:triprider/screens/MyPage/Record_Screen.dart';
 import 'package:triprider/screens/MyPage/Save_Course_Screen.dart';
+import 'package:triprider/screens/MyPage/PrivacyPolicyScreen.dart';
+import 'package:triprider/screens/MyPage/TermsOfServiceScreen.dart';
+import 'package:triprider/screens/MyPage/LogoutScreen.dart';
 import 'package:triprider/widgets/Bottom_App_Bar.dart';
 
-// =========================
-// 서버 API 기본 설정
-// =========================
-const String kApiBase = 'http://10.0.2.2:8080'; // 백엔드 베이스 URL
+/// =========================
+/// 서버 API 기본 설정
+/// =========================
+
+// 플랫폼별 로컬 서버 접근 주소 자동 선택
+final String kApiBase = (() {
+  if (Platform.isIOS) return 'http://127.0.0.1:8080';
+  return 'http://10.0.2.2:8080';
+})();
 
 Future<String?> _getJwt() async {
   final prefs = await SharedPreferences.getInstance();
@@ -26,22 +34,35 @@ Future<String?> _getJwt() async {
 
 Future<Map<String, String>> _authHeaders({Map<String, String>? extra}) async {
   final token = await _getJwt();
-  final headers = <String, String>{
-    'Authorization': 'Bearer $token',
-  };
+  final headers = <String, String>{'Authorization': 'Bearer $token'};
   if (extra != null) headers.addAll(extra);
   return headers;
 }
 
-// =========================
-// API 모델
-// =========================
+String resolveImageUrl(String? path) {
+  if (path == null) return '';
+  final p = path.trim();
+  if (p.isEmpty) return '';
+  if (p.startsWith('http://') || p.startsWith('https://')) return p;
+  if (p.startsWith('/')) return '$kApiBase$p';
+  return '$kApiBase/$p';
+}
+
+String withCacheBust(String url) {
+  if (url.isEmpty) return url;
+  final ts = DateTime.now().millisecondsSinceEpoch;
+  return url.contains('?') ? '$url&ts=$ts' : '$url?ts=$ts';
+}
+
+/// =========================
+/// API 모델
+/// =========================
 class MyPageResponse {
   final String email;
   final String nickname;
   final String? intro;
   final String? badge;
-  final String? profileImage; // URL
+  final String? profileImage;
   final num? totalDistance;
 
   MyPageResponse({
@@ -63,9 +84,9 @@ class MyPageResponse {
   );
 }
 
-// =========================
-// API 호출
-// =========================
+/// =========================
+/// API 호출
+/// =========================
 Future<MyPageResponse> fetchMyPage() async {
   final uri = Uri.parse('$kApiBase/api/mypage');
   final res = await http.get(uri, headers: await _authHeaders());
@@ -76,13 +97,13 @@ Future<MyPageResponse> fetchMyPage() async {
   return MyPageResponse.fromJson(data);
 }
 
-///한줄 소개
 Future<void> updateIntroOnServer(String intro) async {
   final uri = Uri.parse('$kApiBase/api/mypage/intro');
-  // 백엔드 @RequestBody String intro → text/plain 권장
   final res = await http.put(
     uri,
-    headers: await _authHeaders(extra: {'Content-Type': 'text/plain; charset=utf-8'}),
+    headers: await _authHeaders(
+      extra: {'Content-Type': 'text/plain; charset=utf-8'},
+    ),
     body: intro,
   );
   if (res.statusCode != 200) {
@@ -90,37 +111,35 @@ Future<void> updateIntroOnServer(String intro) async {
   }
 }
 
-///프로필 이미지
 Future<String> uploadProfileImage(File imageFile) async {
   final uri = Uri.parse('$kApiBase/api/mypage/profile-image');
   final req = http.MultipartRequest('POST', uri);
-  req.headers.addAll(await _authHeaders()); // Authorization만 넣기
+  req.headers.addAll(await _authHeaders());
   req.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
   final streamed = await req.send();
   final res = await http.Response.fromStream(streamed);
   if (res.statusCode != 200) {
     throw Exception('프로필 이미지 업로드 실패: ${res.statusCode} ${res.body}');
   }
-  // 컨트롤러는 URL(String) 반환
-  return res.body.replaceAll('"', '').trim();
+  final raw = res.body.replaceAll('"', '').trim();
+  return resolveImageUrl(raw);
 }
 
-// =========================
-// 화면
-// =========================
+/// =========================
+/// 화면
+/// =========================
 class MypageScreen extends StatefulWidget {
   const MypageScreen({super.key});
   @override
   State<MypageScreen> createState() => _MypageScreenState();
 }
 
-class _MypageScreenState extends State<MypageScreen> with WidgetsBindingObserver {
-  // 서버 데이터
+class _MypageScreenState extends State<MypageScreen>
+    with WidgetsBindingObserver {
   String _nickname = '닉네임';
   String _introText = '한줄 소개';
   String? _profileImageUrl;
 
-  // 로컬 편집용
   XFile? _pickedImage;
   bool _loading = true;
 
@@ -152,19 +171,17 @@ class _MypageScreenState extends State<MypageScreen> with WidgetsBindingObserver
         _introText = (mp.intro != null && mp.intro!.trim().isNotEmpty)
             ? mp.intro!.trim()
             : '한줄 소개를 입력해보세요';
-        _profileImageUrl = mp.profileImage;
+        _profileImageUrl = resolveImageUrl(mp.profileImage);
         _loading = false;
       });
 
-      // 닉네임 캐시(로그인 화면 등에서 재사용)
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('nickname', _nickname);
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('마이페이지 불러오기 실패: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('마이페이지 불러오기 실패: $e')));
       }
     }
   }
@@ -184,38 +201,32 @@ class _MypageScreenState extends State<MypageScreen> with WidgetsBindingObserver
 
     if (result == null) return;
 
-    // 변경 사항 서버 반영
     try {
-      // 1) intro 변경
       if (result.intro != null && result.intro!.trim() != _introText.trim()) {
         await updateIntroOnServer(result.intro!.trim());
         _introText = result.intro!.trim();
       }
-
-      // 2) 이미지 업로드 (갤러리/카메라에서 새로 고른 경우만)
       if (result.image != null) {
         final url = await uploadProfileImage(File(result.image!.path));
-        _profileImageUrl = url;
-        _pickedImage = null; // 서버 반영 후 로컬 파일 캐시는 비움
+        _profileImageUrl = withCacheBust(url);
+        _pickedImage = null;
       }
-
-      setState(() {}); // 화면 갱신
+      setState(() {});
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('프로필이 업데이트됐어요.')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('프로필이 업데이트됐어요.')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('업데이트 실패: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('업데이트 실패: $e')));
     }
   }
 
   ImageProvider<Object> _buildProfileImageProvider() {
     if (_pickedImage != null) return FileImage(File(_pickedImage!.path));
-    if (_profileImageUrl != null && _profileImageUrl!.isNotEmpty) {
-      return NetworkImage(_profileImageUrl!);
+    final url = resolveImageUrl(_profileImageUrl);
+    if (url.isNotEmpty) {
+      return NetworkImage(url);
     }
     return const AssetImage('assets/image/logo.png');
   }
@@ -248,9 +259,9 @@ class _MypageScreenState extends State<MypageScreen> with WidgetsBindingObserver
   }
 }
 
-// =========================
-// AppBar
-// =========================
+/// =========================
+/// AppBar
+/// =========================
 class MyPage_AppBar extends StatelessWidget implements PreferredSizeWidget {
   const MyPage_AppBar({super.key, this.onEditPressed, required this.titleText});
   final VoidCallback? onEditPressed;
@@ -269,12 +280,11 @@ class MyPage_AppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         IconButton(
           onPressed: onEditPressed,
-          icon: const Icon(Icons.drive_file_rename_outline, size: 30, color: Colors.black),
-        ),
-        const SizedBox(width: 10),
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.menu, size: 30, color: Colors.black),
+          icon: const Icon(
+            Icons.drive_file_rename_outline,
+            size: 30,
+            color: Colors.black,
+          ),
         ),
         const SizedBox(width: 10),
       ],
@@ -282,13 +292,17 @@ class MyPage_AppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-// =========================
-// 상단 카드
-// =========================
+/// =========================
+/// 상단 카드
+/// =========================
 class MyPage_top extends StatelessWidget {
   final ImageProvider<Object> imageProvider;
   final String intro;
-  const MyPage_top({super.key, required this.imageProvider, required this.intro});
+  const MyPage_top({
+    super.key,
+    required this.imageProvider,
+    required this.intro,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -316,49 +330,63 @@ class MyPage_top extends StatelessWidget {
         children: [
           Row(
             children: [
-              CircleAvatar(radius: 40, backgroundImage: imageProvider),
+              CircleAvatar(
+                radius: 40,
+                backgroundImage: imageProvider,
+                onBackgroundImageError: (_, __) {},
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('제주도', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  children: const [
+                    Text('제주도',
+                        style: TextStyle(color: Colors.white, fontSize: 16)),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
-                      children: const [
+                      children: [
                         Text('2.3',
                             style: TextStyle(
-                                color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+                                color: Colors.white,
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold)),
                         SizedBox(width: 4),
-                        Text('바퀴', style: TextStyle(color: Colors.white, fontSize: 16)),
+                        Text('바퀴',
+                            style: TextStyle(color: Colors.white, fontSize: 16)),
                         Spacer(),
-                        Text('누적거리 507 km', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                        Text('누적거리 507 km',
+                            style:
+                            TextStyle(color: Colors.white70, fontSize: 14)),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: const LinearProgressIndicator(
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                      child: LinearProgressIndicator(
                         value: 0.77,
                         backgroundColor: Colors.white24,
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                         minHeight: 6,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    const Text('3바퀴까지 153 km 남음',
-                        style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    SizedBox(height: 4),
+                    Text('3바퀴까지 153 km 남음',
+                        style:
+                        TextStyle(color: Colors.white70, fontSize: 14)),
                   ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          Text(
-            intro,
-            style: const TextStyle(color: Colors.black, fontSize: 15, fontWeight: FontWeight.w500),
-          ),
+          Text(intro,
+              style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500)),
           const SizedBox(height: 20),
+
+          // ⭐ 뱃지 & 칭호 UI 복원
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
             decoration: BoxDecoration(
@@ -368,19 +396,26 @@ class MyPage_top extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(children: const [
-                  Icon(Icons.star, color: Colors.white),
-                  SizedBox(width: 6),
-                  Text('+6', style: TextStyle(color: Colors.white, fontSize: 18)),
-                  SizedBox(width: 8),
-                  Text('뱃지', style: TextStyle(color: Colors.white70)),
-                ]),
-                const Text('|', style: TextStyle(fontSize: 25, color: Colors.white)),
-                Row(children: const [
-                  Text('제주 토박이 +2', style: TextStyle(color: Colors.white, fontSize: 18)),
-                  SizedBox(width: 8),
-                  Text('칭호', style: TextStyle(color: Colors.white70)),
-                ]),
+                Row(
+                  children: const [
+                    Icon(Icons.star, color: Colors.white),
+                    SizedBox(width: 6),
+                    Text('+6',
+                        style: TextStyle(color: Colors.white, fontSize: 18)),
+                    SizedBox(width: 8),
+                    Text('뱃지', style: TextStyle(color: Colors.white70)),
+                  ],
+                ),
+                const Text('|',
+                    style: TextStyle(fontSize: 25, color: Colors.white)),
+                Row(
+                  children: const [
+                    Text('제주 토박이 +2',
+                        style: TextStyle(color: Colors.white, fontSize: 18)),
+                    SizedBox(width: 8),
+                    Text('칭호', style: TextStyle(color: Colors.white70)),
+                  ],
+                ),
               ],
             ),
           ),
@@ -391,9 +426,10 @@ class MyPage_top extends StatelessWidget {
   }
 }
 
-// =========================
-// 하단 메뉴 리스트
-// =========================
+
+/// =========================
+/// 하단 메뉴 리스트
+/// =========================
 class MyPage_Bottom extends StatelessWidget {
   const MyPage_Bottom({super.key});
   @override
@@ -401,24 +437,39 @@ class MyPage_Bottom extends StatelessWidget {
     return Column(
       children: [
         _buildMenuItem(context, '주행 기록', const RecordScreen()),
-        _buildMenuItem(context, '저장한 코스', const SaveCourseScreen()),
+        _buildMenuItem(context, '좋아요 누른 코스', const SaveCourseScreen()),
         _buildMenuItem(context, '뱃지 & 칭호 관리', const BadgeStyleScreen()),
         _buildMenuItem(context, '나의 게시물', const MyUploadScreen()),
+        _buildMenuItem(context, '개인정보처리방침', const PrivacyPolicyScreen()),
+        _buildMenuItem(context, '이용약관', const TermsOfServiceScreen()),
+        _buildMenuItem(context, '로그아웃', const LogoutScreen()),
       ],
     );
   }
 
-  Widget _buildMenuItem(BuildContext context, String title, Widget destinationPage) {
+  Widget _buildMenuItem(
+      BuildContext context,
+      String title,
+      Widget destinationPage,
+      ) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => destinationPage)),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => destinationPage),
+      ),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+            Text(title,
+                style:
+                const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
             const Icon(Icons.arrow_forward_ios, size: 18),
           ],
         ),
@@ -427,12 +478,12 @@ class MyPage_Bottom extends StatelessWidget {
   }
 }
 
-// =========================
-// 편집 바텀시트
-// =========================
+/// =========================
+/// 편집 바텀시트
+/// =========================
 class _EditProfileResult {
-  final XFile? image; // 새로 선택한 이미지 파일(있으면 업로드)
-  final String? intro; // 변경된 intro(있으면 수정)
+  final XFile? image;
+  final String? intro;
   _EditProfileResult({this.image, this.intro});
 }
 
@@ -445,7 +496,7 @@ class EditProfileSheet extends StatefulWidget {
   });
 
   final String initialIntro;
-  final XFile? initialImage; // 사용 안 해도 되지만 호환 유지
+  final XFile? initialImage;
   final String? initialNetworkImage;
 
   @override
@@ -470,24 +521,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
     super.dispose();
   }
 
-  Future<bool> _ensurePhotoPermission() async {
-    if (Platform.isAndroid) {
-      final photos = await Permission.photos.request();   // Android 13+
-      final storage = await Permission.storage.request(); // Android 12-
-      return photos.isGranted || storage.isGranted;
-    }
-    return true;
-  }
-
   Future<void> _pickImage() async {
-    final ok = await _ensurePhotoPermission();
-    if (!ok) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('사진 접근 권한이 필요합니다. 설정에서 허용해주세요.')),
-      );
-      return;
-    }
     await Future.delayed(const Duration(milliseconds: 60));
     final picked = await _picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
@@ -498,10 +532,13 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
+
+    final initialNet = resolveImageUrl(widget.initialNetworkImage);
+
     final ImageProvider<Object> imageProvider = _image != null
-        ? FileImage(File(_image!.path)) as ImageProvider
-        : (widget.initialNetworkImage != null && widget.initialNetworkImage!.isNotEmpty
-        ? NetworkImage(widget.initialNetworkImage!)
+        ? FileImage(File(_image!.path))
+        : (initialNet.isNotEmpty
+        ? NetworkImage(initialNet)
         : const AssetImage('assets/image/logo.png'));
 
     return DraggableScrollableSheet(
@@ -510,7 +547,12 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
       maxChildSize: 0.95,
       builder: (_, controller) {
         return Container(
-          padding: EdgeInsets.only(left: 20, right: 20, top: 16, bottom: bottom + 16),
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 16,
+            bottom: bottom + 16,
+          ),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -522,7 +564,10 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    CircleAvatar(radius: 48, backgroundImage: imageProvider),
+                    CircleAvatar(
+                      radius: 48,
+                      backgroundImage: imageProvider,
+                    ),
                     Positioned(
                       right: 0,
                       bottom: 0,
@@ -530,7 +575,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(18),
-                          onTap: _pickImage,
+                          onTap: _pickImage, // 사진 선택
                           child: Container(
                             width: 36,
                             height: 36,
@@ -539,7 +584,8 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                               shape: BoxShape.circle,
                             ),
                             alignment: Alignment.center,
-                            child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
+                            child: const Icon(Icons.camera_alt,
+                                size: 18, color: Colors.white),
                           ),
                         ),
                       ),
@@ -547,8 +593,10 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                   ],
                 ),
               ),
+
               const SizedBox(height: 16),
-              const Text('한줄 소개', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const Text('한줄 소개',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               TextField(
                 controller: _controller,
@@ -561,22 +609,35 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
               ),
               const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(context,
-                      _EditProfileResult(image: _image, intro: _controller.text.trim()));
+                  Navigator.pop(
+                    context,
+                    _EditProfileResult(
+                      image: _image,
+                      intro: _controller.text.trim(),
+                    ),
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   backgroundColor: Colors.white70,
                 ),
-                child: const Text('저장',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black)),
+                child: const Text(
+                  '저장',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black),
+                ),
               ),
             ],
           ),
