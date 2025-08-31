@@ -6,6 +6,7 @@ import 'package:triprider/screens/RiderGram/Api_client.dart';
 import 'package:triprider/screens/Trip/Custom_Course_Detail_Screen.dart';
 import 'package:triprider/screens/trip/models.dart';
 
+// lib/screens/trip/widgets/My_Course_Card.dart
 class MyCourseCardList extends StatefulWidget {
   const MyCourseCardList({
     super.key,
@@ -54,6 +55,42 @@ class _MyCourseCardListState extends State<MyCourseCardList> {
     }
   }
 
+  Future<void> _deleteCourse(CourseCard c) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("코스 삭제"),
+        content: Text("'${c.title}' 코스를 삭제하시겠습니까?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("취소")),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text("삭제"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await ApiClient.delete('/api/custom/courses/${c.id}');
+      setState(() {
+        _items.removeWhere((e) => e.id == c.id);
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("코스가 삭제되었습니다.")),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("삭제 실패: $e")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -85,6 +122,7 @@ class _MyCourseCardListState extends State<MyCourseCardList> {
                   .showSnackBar(SnackBar(content: Text('상세 불러오기 실패: $e')));
             }
           },
+          onDelete: () => _deleteCourse(c), // ✅ 삭제 핸들러 연결
         );
       },
     );
@@ -95,38 +133,63 @@ class _CourseCardTile extends StatelessWidget {
   final String title;
   final String preview;
   final VoidCallback onTap;
-  const _CourseCardTile({required this.title, required this.preview, required this.onTap});
+  final VoidCallback? onDelete; // ✅ 삭제 콜백
+  const _CourseCardTile({
+    required this.title,
+    required this.preview,
+    required this.onTap,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Ink(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 10, offset: Offset(0,6))],
-          ),
-          child: Row(children: [
-            Container(width: 4, height: 48, decoration: BoxDecoration(
-                color: const Color(0xFFFF4E6B), borderRadius: BorderRadius.circular(6))),
+      child: Ink(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 10, offset: Offset(0,6))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF4E6B),
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                const SizedBox(height: 4),
-                Text(preview, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.black45)),
-              ]),
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    const SizedBox(height: 4),
+                    Text(preview,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.black45)),
+                  ],
+                ),
+              ),
             ),
+            if (onDelete != null)
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: onDelete,
+              ),
             const Icon(Icons.chevron_right),
-          ]),
+          ],
         ),
       ),
     );
   }
 }
+
