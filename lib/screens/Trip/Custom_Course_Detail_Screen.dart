@@ -11,12 +11,12 @@ class CourseDetailScreen extends StatefulWidget {
   final CoursePreview? preview; // 미리보기일 때
 
   const CourseDetailScreen.view({super.key, required CourseView view})
-    : view = view,
-      preview = null;
+      : view = view,
+        preview = null;
 
   const CourseDetailScreen.preview({super.key, required CoursePreview preview})
-    : view = null,
-      preview = preview;
+      : view = null,
+        preview = preview;
 
   @override
   State<CourseDetailScreen> createState() => _CourseDetailScreenState();
@@ -51,19 +51,22 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
           'polyline': null,
         },
       );
+
       final view = CourseView.fromJson(jsonDecode(res.body));
       if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => CourseDetailScreen.view(view: view)),
       );
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('저장 완료')));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('저장 완료')),
+      );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('저장 실패: $e')),
+      );
     }
   }
 
@@ -71,28 +74,46 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   Widget build(BuildContext context) {
     final title = _isPreview ? '코스 미리보기' : (widget.view?.title ?? '여행 코스');
     final km = (_isPreview
-            ? widget.preview!.distanceKm
-            : widget.view!.distanceKm)
+        ? widget.preview!.distanceKm
+        : widget.view!.distanceKm)
         .toStringAsFixed(1);
     final min =
-        _isPreview ? widget.preview!.durationMin : widget.view!.durationMin;
+    _isPreview ? widget.preview!.durationMin : widget.view!.durationMin;
 
-    final center =
-        _wps.isEmpty
-            ? const LatLng(33.3846, 126.5535)
-            : LatLng(_wps.first.lat, _wps.first.lng);
+    final center = _wps.isEmpty
+        ? const LatLng(33.3846, 126.5535)
+        : LatLng(_wps.first.lat, _wps.first.lng);
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: Icon(Icons.arrow_back_ios),
+          icon: const Icon(Icons.arrow_back_ios),
         ),
         centerTitle: true,
         title: Text(title),
         actions: [
-          if (_isPreview) TextButton(onPressed: _save, child: const Text('저장')),
+          if (_isPreview)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.pinkAccent, // 배경색
+                  foregroundColor: Colors.white, // 글씨 색
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                onPressed: _save,
+                child: const Text(
+                  '저장',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
         ],
       ),
       body: Column(
@@ -127,7 +148,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
           // 스텝 리스트
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: _wps.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (_, i) => _StepTile(i: i + 1, w: _wps[i]),
@@ -168,7 +190,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
 class _StepTile extends StatelessWidget {
   final int i;
   final Waypoint w;
+
   const _StepTile({required this.i, required this.w});
+
   @override
   Widget build(BuildContext context) {
     return Container(
