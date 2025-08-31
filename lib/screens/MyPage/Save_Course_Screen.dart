@@ -60,26 +60,43 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
 
   Future<void> _toggleLike(int index) async {
     final item = _items[index];
+    final likedNow = item.liked == true;
 
+    // UI 미리 반영 (Optimistic update)
     setState(() {
-      _items.removeAt(index);
-      _covers.removeAt(index);
+      _items[index] = _LikedCourse(
+        id: item.id,
+        category: item.category,
+        title: item.title,
+        coverImageUrl: item.coverImageUrl,
+        totalDistanceMeters: item.totalDistanceMeters,
+        liked: !likedNow, // 반대로 바꿔줌
+      );
     });
 
     try {
       final path = '/api/travel/riding/${item.category}/${item.id}/likes';
-      await ApiClient.delete(path); // unlike
+      if (likedNow) {
+        // 이미 좋아요 상태 → 해제
+        await ApiClient.delete(path);
+      } else {
+        // 아직 안 누름 → 좋아요 추가
+        await ApiClient.post(path);
+      }
     } catch (e) {
       if (!mounted) return;
+
+      // 실패 → 원래 상태로 롤백
       setState(() {
-        _items.insert(index, item);
-        _covers.insert(index, _covers.length > index ? _covers[index] : CourseCoverResolver.fallback);
+        _items[index] = item;
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('좋아요 해제 실패: $e')),
+        SnackBar(content: Text('좋아요 처리 실패: $e')),
       );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +107,7 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
           icon: const Icon(Icons.arrow_back_ios_new, size: 28),
         ),
         centerTitle: true,
-        title: const Text('저장한 코스', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('좋아요 누른 코스', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: _buildBody(),
     );
@@ -103,11 +120,6 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
 
     return ListView(
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Text('내가 좋아요한 코스',
-              style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
-        ),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -184,9 +196,14 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
                             child: InkWell(
                               onTap: () => _toggleLike(i),
                               borderRadius: BorderRadius.circular(20),
-                              child: const Icon(Icons.favorite, color: Colors.red, size: 30),
+                              child: Icon(
+                                c.liked == true ? Icons.favorite : Icons.favorite_border,
+                                color: c.liked == true ? Colors.red : Colors.white,
+                                size: 30,
+                              ),
                             ),
                           ),
+
                         ],
                       ),
                     ),
