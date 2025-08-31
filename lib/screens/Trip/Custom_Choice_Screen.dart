@@ -178,13 +178,14 @@ class _CustomChoiceScreenState extends State<CustomChoiceScreen> {
   List<CategoryOption> _optsCulture() => [
     CategoryOption(type: 'culture', label: '박물관', presetKey: 'culture.museum'),
     CategoryOption(type: 'culture', label: '기념관', presetKey: 'culture.memorial'),
-    CategoryOption(type: 'culture', label: '미술관', presetKey: 'culture.art'), // ← 여기!
+    CategoryOption(type: 'culture', label: '미술관', presetKey: 'culture.art'), // ← 여기! (수정 완료)
   ];
+
 
 // 5) 축제/행사(15): 공연 / 축제
   List<CategoryOption> _optsEvent() => [
     CategoryOption(type: 'event', label: '공연', presetKey: 'event.performance'),
-    CategoryOption(type: 'event', label: '축제', presetKey: 'event.exhibition'),      // ← 여기!
+    CategoryOption(type: 'event', label: '축제', presetKey: 'event.exhibition'),      // ← 여기!(수정 완료)
   ];
 
 
