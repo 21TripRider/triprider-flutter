@@ -237,14 +237,9 @@ class _StepTile extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(w.title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 2),
-                if (w.cat1 != null || w.cat2 != null)
-                  Text('${w.cat1 ?? ''} ${w.cat2 ?? ''}', style: const TextStyle(color: Colors.black45)),
-              ],
+            child: Text(
+              w.title,
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -252,3 +247,4 @@ class _StepTile extends StatelessWidget {
     );
   }
 }
+
