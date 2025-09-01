@@ -39,6 +39,12 @@ android {
     }
 }
 
+dependencies {
+    // Kakao Vector Map SDK (upgrade)
+    implementation("com.kakao.maps.open:android:2.12.15")
+}
+
+
 flutter {
     source = "../.."
 }

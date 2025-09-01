@@ -1,0 +1,640 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:triprider/utils/kakao_map_channel.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:triprider/widgets/Bottom_App_Bar.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+import 'package:triprider/data/kakao_local_api.dart';
+import 'package:triprider/controllers/map_controller.dart';
+import 'package:triprider/state/map_view_model.dart';
+
+class KakaoMapScreen extends StatefulWidget {
+  const KakaoMapScreen({super.key});
+
+  @override
+  State<KakaoMapScreen> createState() => _KakaoMapScreenState();
+}
+
+class _KakaoMapScreenState extends State<KakaoMapScreen> {
+  final KakaoMapChannel _channel = KakaoMapChannel();
+
+  bool _loading = true;
+  String? _error;
+  double? _lat;
+  double? _lon;
+  final int _zoomLevel = 16;
+  String? _warning;
+
+  // Tracking state
+  bool _tracking = false;
+  DateTime? _startTime;
+  Timer? _ticker;
+  Duration _elapsed = Duration.zero;
+  StreamSubscription<Position>? _posSub;
+  StreamSubscription<Position>? _userPosSub;
+  final List<List<double>> _path = <List<double>>[]; // [lat, lon]
+  double _totalDistanceMeters = 0.0;
+  double _maxSpeedKmh = 0.0;
+  double? _currentSpeedKmh;
+  int _lastRenderedPointCount = 0;
+  bool _loadingPois = false;
+  String _activeFilter = 'none'; // none | gas | moto
+  List<Map<String, dynamic>> _pois = <Map<String, dynamic>>[];
+  final Map<int, Map<String, dynamic>> _labelById = <int, Map<String, dynamic>>{};
+  int _lastIdleZoom = 16;
+  double? _lastIdleLat;
+  double? _lastIdleLon;
+  Timer? _poiDebounce;
+  bool _suppressPoiOnce = false;
+
+  static const String _kakaoRestApiKey = '471ee3eec0b9d8a5fc4eb86fb849e524';
+
+  // ViewModel/Controller
+  late final KakaoLocalApi _api = KakaoLocalApi(_kakaoRestApiKey);
+  late final MapController _mapController = MapController(_channel);
+  late final MapViewModel _vm = MapViewModel(api: _api, controller: _mapController);
+
+  @override
+  void initState() {
+    super.initState();
+    _initLocation();
+  }
+
+  Future<void> _fallbackGasByKeyword(double lat, double lon, int radius) async {
+    try {
+      final headers = {'Authorization': 'KakaoAK $_kakaoRestApiKey'};
+      final uri = Uri.parse('https://dapi.kakao.com/v2/local/search/keyword.json').replace(queryParameters: {
+        'query': '주유소',
+        'x': lon.toStringAsFixed(6),
+        'y': lat.toStringAsFixed(6),
+        'radius': '5000',
+        'size': '15',
+        'page': '1',
+      });
+      final resp = await http.get(uri, headers: headers);
+      if (resp.statusCode != 200) return;
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final docs = (data['documents'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+      final labels = <Map<String, dynamic>>[];
+      int id = 210000;
+      for (final d in docs) {
+        final name = d['place_name']?.toString() ?? '주유소';
+        final y = double.tryParse(d['y']?.toString() ?? '') ?? 0.0;
+        final x = double.tryParse(d['x']?.toString() ?? '') ?? 0.0;
+        labels.add({'name': '⛽ $name', 'lat': y, 'lon': x, 'id': id++});
+      }
+      if (labels.isNotEmpty) {
+        await _channel.setLabels(labels);
+        _pois = _withDistance(lat, lon, docs.map((d) => {
+          'name': d['place_name']?.toString() ?? '주유소',
+          'lat': double.tryParse(d['y']?.toString() ?? '') ?? 0.0,
+          'lon': double.tryParse(d['x']?.toString() ?? '') ?? 0.0,
+        }).toList());
+        if (mounted) setState(() {});
+      }
+    } catch (_) {}
+  }
+
+  List<Map<String, dynamic>> _withDistance(double lat, double lon, List<Map<String, dynamic>> items) {
+    double haversine(double lat1, double lon1, double lat2, double lon2) {
+      const R = 6371000.0;
+      final dLat = (lat2 - lat1) * math.pi / 180.0;
+      final dLon = (lon2 - lon1) * math.pi / 180.0;
+      final a =
+          (math.sin(dLat / 2) * math.sin(dLat / 2)) +
+              math.cos(lat1 * math.pi / 180.0) * math.cos(lat2 * math.pi / 180.0) *
+                  (math.sin(dLon / 2) * math.sin(dLon / 2));
+      final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+      return R * c;
+    }
+    final out = <Map<String, dynamic>>[];
+    for (final m in items) {
+      final d = haversine(lat, lon, (m['lat'] as num).toDouble(), (m['lon'] as num).toDouble());
+      final n = Map<String, dynamic>.from(m);
+      n['distance'] = d;
+      out.add(n);
+    }
+    out.sort((a, b) => ((a['distance'] as num).compareTo((b['distance'] as num))));
+    return out;
+  }
+
+  // removed in favor of ViewModel
+
+  Widget _filterButton({required String label, required String value}) {
+    final active = _activeFilter == value;
+    return GestureDetector(
+      onTap: () async {
+        // 토글 토글: 같은 버튼을 다시 누르면 해제
+        final willDeactivate = _activeFilter == value;
+        if (willDeactivate) {
+          setState(() { _activeFilter = 'none'; _pois = []; });
+          try { await _channel.removeAllSpotLabel(); } catch (_) {}
+          // 사용자 위치 라벨은 유지/재표시
+          if (_lat != null && _lon != null) { try { await _channel.setUserLocation(lat: _lat!, lon: _lon!); } catch (_) {} }
+          return;
+        }
+
+        setState(() { _activeFilter = value; _pois = []; });
+        _vm.activeFilter = value;
+        if (_lat != null && _lon != null) {
+          await _vm.refreshPois(_lat!, _lon!);
+          _applyVmPoisToLocal(_lat!, _lon!);
+          // 사용자 위치 라벨 재설정(라벨 클리어 시 지워졌을 수 있음)
+          try { await _channel.setUserLocation(lat: _lat!, lon: _lon!); } catch (_) {}
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? Colors.blue : Colors.white,
+          border: Border.all(color: active ? Colors.blue : Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(label, style: TextStyle(color: active ? Colors.white : Colors.black)),
+      ),
+    );
+  }
+
+  Future<void> _initLocation() async {
+    // 1) 먼저 기본 좌표로 맵을 즉시 렌더링합니다 (에뮬레이터 위치 지연 대비)
+    setState(() {
+      _lat = 33.510414; // fallback: Jeju International Airport
+      _lon = 126.491353;
+      _loading = false;
+    });
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() {
+          _warning = '위치 서비스가 꺼져 있어 기본 위치로 표시합니다.';
+        });
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
+        setState(() {
+          _warning = '위치 권한이 없어 기본 위치로 표시합니다.';
+        });
+        return;
+      }
+
+      // 2) 현재 위치를 5초 타임아웃으로 가져옵니다 (에뮬레이터 무한 대기 방지)
+      final pos = await Geolocator
+          .getCurrentPosition(desiredAccuracy: LocationAccuracy.high)
+          .timeout(const Duration(seconds: 5));
+
+      setState(() {
+        _lat = pos.latitude;
+        _lon = pos.longitude;
+      });
+
+      // 3) 맵이 이미 렌더링된 이후라면 카메라를 사용자의 현재 위치로 이동
+      try {
+        await _channel.animateCamera(lat: pos.latitude, lon: pos.longitude, zoomLevel: _zoomLevel, durationMs: 350);
+        // 사용자 위치 표시
+        await _channel.setUserLocation(lat: pos.latitude, lon: pos.longitude);
+      } catch (_) {}
+
+      // 패시브 사용자 위치 업데이트 시작 (항상 표시/갱신)
+      _startUserLocationUpdates();
+      // 주변 표시 (필터 상태에 따라) - ViewModel 경유
+      if (_activeFilter != 'none') {
+        _vm.activeFilter = _activeFilter;
+        await _vm.refreshPois(pos.latitude, pos.longitude);
+        _applyVmPoisToLocal(pos.latitude, pos.longitude);
+      }
+    } on TimeoutException {
+      setState(() {
+        _warning = '현재 위치를 가져오지 못해 기본 위치로 표시합니다.';
+      });
+    } catch (e) {
+      setState(() {
+        _warning = '위치 정보를 가져오지 못해 기본 위치로 표시합니다.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _buildBody(),
+      floatingActionButton: (_lat != null && _lon != null)
+          ? FloatingActionButton(
+        heroTag: 'recenter',
+        onPressed: () async {
+          try {
+            _suppressPoiOnce = true; // 재센터 시 POI 재조회 억제
+            await _channel.animateCamera(lat: _lat!, lon: _lon!, zoomLevel: _zoomLevel, durationMs: 300);
+            await _channel.setUserLocation(lat: _lat!, lon: _lon!);
+          } catch (_) {}
+        },
+        child: const Icon(Icons.my_location),
+      )
+          : null,
+      bottomNavigationBar: const BottomAppBarWidget(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final safeTop = MediaQuery.of(context).padding.top + 12; // 펀치홀/노치 고려 상단 여백
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+    return Stack(
+      children: [
+        _buildPlatformView(_lat!, _lon!),
+        if (_warning != null)
+          Positioned(
+            top: safeTop,
+            left: 16,
+            right: 16,
+            child: Material(
+              color: Colors.orange.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(_warning!, style: const TextStyle(color: Colors.white)),
+              ),
+            ),
+          ),
+        if (_tracking) _trackingHUD(),
+        // 상단 필터 버튼들
+        Positioned(
+          top: safeTop + 44, // 경고 배지 아래로, 상단 여백 강화
+          left: 16,
+          right: 16,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _filterButton(label: '주유소', value: 'gas'),
+                const SizedBox(width: 8),
+                _filterButton(label: '오토바이', value: 'moto'),
+              ],
+            ),
+          ),
+        ),
+        // 하단 결과 패널
+        if (_pois.isNotEmpty)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 24 + kBottomNavigationBarHeight + safeBottom,
+            child: Container(
+              height: 220,
+              margin: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+              ),
+              child: ListView.separated(
+                padding: const EdgeInsets.all(12),
+                itemCount: _pois.length,
+                separatorBuilder: (_, __) => const Divider(height: 12),
+                itemBuilder: (_, i) {
+                  final m = _pois[i];
+                  final name = (m['name'] as String?) ?? '-';
+                  final dist = (m['distance'] as double?) ?? 0.0;
+                  return ListTile(
+                    dense: true,
+                    title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: dist > 0 ? Text('${(dist / 1000).toStringAsFixed(2)} km') : null,
+                    onTap: () async {
+                      final lat = (m['lat'] as num).toDouble();
+                      final lon = (m['lon'] as num).toDouble();
+                      try { await _channel.moveCamera(lat: lat, lon: lon, zoomLevel: 16); } catch (_) {}
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 24 + kBottomNavigationBarHeight,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FloatingActionButton(
+                onPressed: _onPlayPressed,
+                backgroundColor: _tracking ? Colors.red : null,
+                child: Icon(_tracking ? Icons.stop : Icons.play_arrow),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _onPlayPressed() {
+    if (_tracking) {
+      _stopTracking();
+    } else {
+      _startTracking();
+    }
+  }
+
+  // 네이티브에서 카메라 idle 신호를 받으면 활성 필터 재조회
+  void _bindNativeCallbacks() {}
+
+  Widget _trackingHUD() {
+    final hh = _elapsed.inHours.remainder(60).toString().padLeft(2, '0');
+    final mm = _elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final ss = _elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final current = _currentSpeedKmh == null ? '-' : _currentSpeedKmh!.toStringAsFixed(1);
+    return Positioned(
+      top: 16,
+      left: 16,
+      right: 16,
+      child: Material(
+        color: Colors.black.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('시간 $hh:$mm:$ss', style: const TextStyle(color: Colors.white, fontSize: 14)),
+              Text('현재속도 ${current}km/h', style: const TextStyle(color: Colors.white, fontSize: 14)),
+              Text('거리 ${( _totalDistanceMeters / 1000).toStringAsFixed(2)}km', style: const TextStyle(color: Colors.white, fontSize: 14)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _startTracking() async {
+    // ensure permission
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('위치 서비스가 꺼져 있습니다.')));
+      return;
+    }
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.deniedForever || permission == LocationPermission.denied) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('위치 권한이 필요합니다.')));
+      return;
+    }
+
+    setState(() {
+      _tracking = true;
+      _startTime = DateTime.now();
+      _elapsed = Duration.zero;
+      _path.clear();
+      _totalDistanceMeters = 0.0;
+      _maxSpeedKmh = 0.0;
+      _currentSpeedKmh = null;
+    });
+
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_startTime != null) {
+        setState(() {
+          _elapsed = DateTime.now().difference(_startTime!);
+        });
+      }
+    });
+
+    _posSub?.cancel();
+    _posSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 5,
+      ),
+    ).listen((pos) async {
+      final lat = pos.latitude;
+      final lon = pos.longitude;
+      final speedKmh = (pos.speed.isFinite ? pos.speed : 0.0) * 3.6; // m/s -> km/h
+      setState(() {
+        _currentSpeedKmh = speedKmh;
+        if (speedKmh > _maxSpeedKmh) _maxSpeedKmh = speedKmh;
+      });
+
+      if (_path.isNotEmpty) {
+        final prev = _path.last;
+        final d = Geolocator.distanceBetween(prev[0], prev[1], lat, lon);
+        if (d >= 1.0) {
+          _totalDistanceMeters += d;
+          _path.add(<double>[lat, lon]);
+        }
+      } else {
+        _path.add(<double>[lat, lon]);
+      }
+
+      // follow camera softly
+      try {
+        await _channel.animateCamera(lat: lat, lon: lon, zoomLevel: _zoomLevel, durationMs: 350);
+        await _channel.setUserLocation(lat: lat, lon: lon);
+      } catch (_) {}
+
+      // update native polyline
+      try {
+        final start = _path.length > 500 ? _path.length - 500 : 0;
+        final pts = <Map<String, double>>[];
+        for (int i = start; i < _path.length; i++) {
+          final p = _path[i];
+          pts.add({'lat': p[0], 'lon': p[1]});
+        }
+        await _channel.updatePolyline(pts);
+      } catch (_) {}
+    });
+  }
+
+  void _startUserLocationUpdates() {
+    _userPosSub?.cancel();
+    _userPosSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 5,
+      ),
+    ).listen((pos) async {
+      try {
+        await _channel.setUserLocation(lat: pos.latitude, lon: pos.longitude);
+      } catch (_) {}
+    });
+  }
+
+  void _stopTracking() async {
+    _posSub?.cancel();
+    _ticker?.cancel();
+    setState(() {
+      _tracking = false;
+    });
+
+    final elapsedSec = _elapsed.inSeconds.toDouble().clamp(1, double.infinity);
+    final hours = elapsedSec / 3600.0;
+    final avgSpeedKmh = hours > 0 ? (_totalDistanceMeters / 1000.0) / hours : 0.0;
+
+    // persist
+    final record = <String, dynamic>{
+      'startedAt': _startTime?.toIso8601String(),
+      'endedAt': DateTime.now().toIso8601String(),
+      'elapsedSeconds': _elapsed.inSeconds,
+      'distanceMeters': _totalDistanceMeters,
+      'maxSpeedKmh': _maxSpeedKmh,
+      'avgSpeedKmh': avgSpeedKmh,
+      'path': _path.map((p) => {'lat': p[0], 'lon': p[1]}).toList(),
+    };
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('ride_records') ?? <String>[];
+      // 1) 캡처 (4:3)
+      String? imagePath;
+      try {
+        // 카메라를 전체 경로가 보이도록 이동 (대략적인 핏)
+        if (_path.isNotEmpty) {
+          final pts = _path.map((p) => {'lat': p[0], 'lon': p[1]}).toList();
+          try { await _channel.fitBounds(points: pts, paddingPx: 32); } catch (_) {}
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+        imagePath = await _channel.captureSnapshot();
+      } catch (_) {}
+
+      // 2) 기록 저장 (이미지 경로 포함)
+      final withImage = Map<String, dynamic>.from(record);
+      if (imagePath != null) withImage['imagePath'] = imagePath;
+      list.add(jsonEncode(withImage));
+      await prefs.setStringList('ride_records', list);
+    } catch (_) {}
+
+    if (!mounted) return;
+    // 캡처/저장 완료 알림
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('주행 기록 저장 완료')));
+
+    // optional: clear drawn dots after finish
+    try { await _channel.removeAllSpotLabel(); } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _posSub?.cancel();
+    _userPosSub?.cancel();
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  Widget _buildPlatformView(double lat, double lon) {
+    final creationParams = <String, dynamic>{
+      'lat': lat,
+      'lon': lon,
+      'zoomLevel': _zoomLevel,
+    };
+
+    if (Platform.isAndroid) {
+      return AndroidView(
+        viewType: 'map-kakao',
+        onPlatformViewCreated: _onPlatformViewCreated,
+        creationParams: creationParams,
+        creationParamsCodec: const StandardMessageCodec(),
+      );
+    }
+    return UiKitView(
+      viewType: 'map-kakao',
+      onPlatformViewCreated: _onPlatformViewCreated,
+      creationParams: creationParams,
+      creationParamsCodec: const StandardMessageCodec(),
+    );
+  }
+
+  void _onPlatformViewCreated(int id) {
+    _channel.initChannel(id);
+    _channel.channel.setMethodCallHandler((call) async {
+      if (call.method == 'onLabelTabbed') {
+        final args = Map<String, dynamic>.from(call.arguments as Map);
+        final id = (args['id'] as num?)?.toInt();
+        if (id != null && _labelById.containsKey(id)) {
+          final m = _labelById[id]!;
+          final raw = (m['raw'] as Map?) ?? {};
+          final title = (raw['name']?.toString() ?? m['name']?.toString() ?? '').replaceFirst('⛽ ', '');
+          final address = raw['address']?.toString();
+          final phone = raw['phone']?.toString();
+          final url = raw['url']?.toString();
+          if (!mounted) return;
+          showModalBottomSheet(
+            context: context,
+            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+            builder: (_) => Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  if (address != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(address)),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    if (phone != null && phone.isNotEmpty)
+                      TextButton.icon(onPressed: () async { final uri = Uri.parse('tel:$phone'); if (await canLaunchUrl(uri)) { await launchUrl(uri); } }, icon: const Icon(Icons.call), label: const Text('전화')),
+                    if (url != null && url.isNotEmpty)
+                      TextButton.icon(onPressed: () async { final uri = Uri.parse(url); if (await canLaunchUrl(uri)) { await launchUrl(uri, mode: LaunchMode.externalApplication); } }, icon: const Icon(Icons.link), label: const Text('상세')),
+                  ]),
+                ],
+              ),
+            ),
+          );
+        }
+      } else if (call.method == 'onCameraIdle') {
+        final args = Map<String, dynamic>.from(call.arguments as Map);
+        final lat = (args['lat'] as num?)?.toDouble();
+        final lon = (args['lon'] as num?)?.toDouble();
+        _lastIdleZoom = (args['zoom'] as num?)?.toInt() ?? _lastIdleZoom;
+        if (lat == null || lon == null) return;
+        _lastIdleLat = lat;
+        _lastIdleLon = lon;
+        _poiDebounce?.cancel();
+        _poiDebounce = Timer(const Duration(milliseconds: 400), () async {
+          if (_lastIdleLat == null || _lastIdleLon == null) return;
+          if (_suppressPoiOnce) {
+            _suppressPoiOnce = false;
+            return;
+          }
+          if (_activeFilter != 'none') {
+            _vm.activeFilter = _activeFilter;
+            await _vm.refreshPois(_lastIdleLat!, _lastIdleLon!);
+            _applyVmPoisToLocal(_lastIdleLat!, _lastIdleLon!);
+            // 사용자 위치 라벨 재표시 보장
+            if (_lat != null && _lon != null) {
+              try { await _channel.setUserLocation(lat: _lat!, lon: _lon!); } catch (_) {}
+            }
+          }
+        });
+      }
+    });
+  }
+
+  void _applyVmPoisToLocal(double lat, double lon) {
+    final maps = <Map<String, dynamic>>[];
+    int id = 200000;
+    for (final p in _vm.pois) {
+      maps.add({'name': p.name, 'lat': p.lat, 'lon': p.lon, 'id': id++});
+    }
+    _pois = _withDistance(lat, lon, maps);
+    setState(() {});
+  }
+}
+
+
+

@@ -1,11 +1,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 권한 -->
+    <!-- ✅ 권한 -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 위치 권한 (정확/대략/백그라운드) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- *Play 심사 이슈가 있을 수 있으니 실제 필요 시에만 사용 권장 -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 미디어/스토리지 (SDK 33+ READ_MEDIA_IMAGES, 32 이하 READ_EXTERNAL_STORAGE) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
@@ -18,25 +23,29 @@
 
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config"
-
         android:enableOnBackInvokedCallback="true">
 
-        <!-- ✅ Kakao SDK App Key (지도/로그인 공통) -->
-        <meta-data
-            android:name="com.kakao.sdk.AppKey"
-            android:value="857552ba819176e757da967cea31fc13" />
-
-        <!-- Google Maps API Key -->
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyA53fiKudkjSzIee7zn-gebXgJuWNuF4lc" />
-
-        <!-- Flutter embedding v2 -->
+        <!-- ✅ Flutter embedding v2 (Application 레벨에 1개만) -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- 카카오 로그인 커스텀 탭 -->
+        <!-- ✅ Kakao Vector Map SDK App Key (지도 SDK용) -->
+        <meta-data
+            android:name="com.kakao.vectormap.AppKey"
+            android:value="@string/kakao_native_app_key" />
+
+        <!-- ✅ Kakao SDK App Key (로그인 등 공통 SDK용; 로그인 안 쓰면 제거 가능) -->
+        <meta-data
+            android:name="com.kakao.sdk.AppKey"
+            android:value="857552ba819176e757da967cea31fc13" />
+
+        <!-- ✅ Google Maps API Key (Application 직속) -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyA53fiKudkjSzIee7zn-gebXgJuWNuF4lc" />
+
+        <!-- ✅ 카카오 로그인 커스텀 탭 (로그인 사용 시 필요) -->
         <activity
             android:name="com.kakao.sdk.flutter.AuthCodeCustomTabsActivity"
             android:exported="true">
@@ -50,7 +59,7 @@
             </intent-filter>
         </activity>
 
-        <!-- 메인 액티비티 -->
+        <!-- ✅ 메인 액티비티 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -61,7 +70,7 @@
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
 
-            <!-- NormalTheme 메타데이터 -->
+            <!-- 정상 위치: Activity 내부에 있어도 되는 Flutter 테마 메타데이터 -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
@@ -74,7 +83,7 @@
 
     </application>
 
-    <!-- 외부 앱 쿼리 -->
+    <!-- ✅ 외부 앱 쿼리 (필요 시 유지) -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />

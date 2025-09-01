@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:triprider/screens/Map/KakaoMapScreen.dart';
 import 'package:triprider/screens/MyPage/Mypage_Screen.dart';
 import 'package:triprider/screens/RiderGram/RiderGram_Screen.dart';
 import 'package:triprider/screens/home/HomeScreen.dart';
@@ -16,12 +17,15 @@ class BottomAppBarWidget extends StatelessWidget {
         page = Homescreen();
         break;
       case 1:
-        page = RidingCourse();
+        page = KakaoMapScreen();
         break;
       case 2:
-        page = RidergramScreen();
+        page = RidingCourse();
         break;
       case 3:
+        page = RidergramScreen();
+        break;
+      case 4:
         page = MypageScreen();
         break;
       default:
@@ -45,14 +49,18 @@ class BottomAppBarWidget extends StatelessWidget {
           ),
           IconButton(
             onPressed: () => _onItemTapped(context, 1),
-            icon: Icon(Icons.motorcycle_sharp, size: 40),
+            icon: Icon(Icons.gps_fixed, size: 40),
           ),
           IconButton(
             onPressed: () => _onItemTapped(context, 2),
-            icon: Icon(Icons.message, size: 40),
+            icon: Icon(Icons.motorcycle_sharp, size: 40),
           ),
           IconButton(
             onPressed: () => _onItemTapped(context, 3),
+            icon: Icon(Icons.message, size: 40),
+          ),
+          IconButton(
+            onPressed: () => _onItemTapped(context, 4),
             icon: Icon(Icons.person, size: 40),
           ),
         ],
