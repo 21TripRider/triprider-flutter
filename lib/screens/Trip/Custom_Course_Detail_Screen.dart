@@ -1,98 +1,77 @@
-// lib/screens/trip/course_detail_screen.dart
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:triprider/screens/RiderGram/Api_client.dart';
+
+import 'package:triprider/screens/Trip/Custom_Riding_Course_Screen.dart';
 import 'package:triprider/screens/trip/models.dart';
 
-class CourseDetailScreen extends StatefulWidget {
-  final CourseView? view; // 저장된 코스일 때
-  final CoursePreview? preview; // 미리보기일 때
+/// 코스 상세(커스텀) 화면은 '한 화면만' 그린다.
+/// 저장 버튼을 누르면 Navigator로 CustomRidingCourse 화면으로 '전환'한다.
+class CustomCourseDetailScreen extends StatefulWidget {
+  final CoursePreview preview; // 미리보기 데이터(경로/거리/시간/웨이포인트 등)
 
-  const CourseDetailScreen.view({super.key, required CourseView view})
-    : view = view,
-      preview = null;
-
-  const CourseDetailScreen.preview({super.key, required CoursePreview preview})
-    : view = null,
-      preview = preview;
+  const CustomCourseDetailScreen({
+    super.key,
+    required this.preview,
+  });
 
   @override
-  State<CourseDetailScreen> createState() => _CourseDetailScreenState();
+  State<CustomCourseDetailScreen> createState() =>
+      _CustomCourseDetailScreenState();
 }
 
-class _CourseDetailScreenState extends State<CourseDetailScreen> {
+class _CustomCourseDetailScreenState extends State<CustomCourseDetailScreen> {
   GoogleMapController? _map;
-  late final List<Waypoint> _wps;
-  late final bool _isPreview;
 
-  @override
-  void initState() {
-    super.initState();
-    _isPreview = widget.preview != null;
-    _wps = widget.preview?.waypoints ?? widget.view?.waypoints ?? [];
-  }
+  void _goToCustomRidingCourse() {
+    // 화면 전환: 현재 화면을 대체하려면 pushReplacement 사용
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CustomRidingCourse(),
+      ),
+    );
 
-  Future<void> _save() async {
-    if (!_isPreview) return;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final uid = prefs.getInt('userId') ?? prefs.getInt('id');
-
-      final res = await ApiClient.post(
-        '/api/custom/courses',
-        headers: {if (uid != null) 'X-USER-ID': '$uid'},
-        body: {
-          'title': '나의 여행 코스',
-          'waypoints': _wps.map((e) => e.toJson()).toList(),
-          'distanceKm': widget.preview!.distanceKm,
-          'durationMin': widget.preview!.durationMin,
-          'polyline': null,
-        },
-      );
-      final view = CourseView.fromJson(jsonDecode(res.body));
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => CourseDetailScreen.view(view: view)),
-      );
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('저장 완료')));
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
-    }
+    // (선택) 토스트
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('저장 완료')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = _isPreview ? '코스 미리보기' : (widget.view?.title ?? '여행 코스');
-    final km = (_isPreview
-            ? widget.preview!.distanceKm
-            : widget.view!.distanceKm)
-        .toStringAsFixed(1);
-    final min =
-        _isPreview ? widget.preview!.durationMin : widget.view!.durationMin;
-
-    final center =
-        _wps.isEmpty
-            ? const LatLng(33.3846, 126.5535)
-            : LatLng(_wps.first.lat, _wps.first.lng);
+    final wps = widget.preview.waypoints;
+    final center = wps.isEmpty
+        ? const LatLng(33.3846, 126.5535)
+        : LatLng(wps.first.lat, wps.first.lng);
 
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: Icon(Icons.arrow_back_ios),
-        ),
+        title: const Text('코스 미리보기'),
         centerTitle: true,
-        title: Text(title),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
-          if (_isPreview) TextButton(onPressed: _save, child: const Text('저장')),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: ElevatedButton(
+              onPressed: _goToCustomRidingCourse,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.pinkAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: const Text(
+                '저장',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
         ],
       ),
       body: Column(
@@ -103,8 +82,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
             child: GoogleMap(
               initialCameraPosition: CameraPosition(target: center, zoom: 11),
               onMapCreated: (c) => _map = c,
-              markers: _buildMarkers(),
-              polylines: _buildPolyline(),
+              markers: _buildMarkers(wps),
+              polylines: _buildPolyline(wps),
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
             ),
@@ -117,7 +96,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
             child: Row(
               children: [
                 Text(
-                  '총 $km km / 약 $min 분',
+                  '총 ${widget.preview.distanceKm.toStringAsFixed(1)} km / '
+                      '약 ${widget.preview.durationMin} 분',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ],
@@ -127,10 +107,11 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
           // 스텝 리스트
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: _wps.length,
+              padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: wps.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (_, i) => _StepTile(i: i + 1, w: _wps[i]),
+              itemBuilder: (_, i) => _StepTile(i: i + 1, w: wps[i]),
             ),
           ),
         ],
@@ -138,8 +119,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
     );
   }
 
-  Set<Marker> _buildMarkers() {
-    return _wps.asMap().entries.map((e) {
+  Set<Marker> _buildMarkers(List<Waypoint> wps) {
+    return wps.asMap().entries.map((e) {
       final i = e.key + 1;
       final w = e.value;
       return Marker(
@@ -150,9 +131,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
     }).toSet();
   }
 
-  Set<Polyline> _buildPolyline() {
-    if (_wps.length < 2) return {};
-    final pts = _wps.map((w) => LatLng(w.lat, w.lng)).toList();
+  Set<Polyline> _buildPolyline(List<Waypoint> wps) {
+    if (wps.length < 2) return {};
+    final pts = wps.map((w) => LatLng(w.lat, w.lng)).toList();
     return {
       Polyline(
         polylineId: const PolylineId('route'),
@@ -169,6 +150,7 @@ class _StepTile extends StatelessWidget {
   final int i;
   final Waypoint w;
   const _StepTile({required this.i, required this.w});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -208,10 +190,7 @@ class _StepTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  w.title,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
+                Text(w.title, style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
                 if (w.cat1 != null || w.cat2 != null)
                   Text(

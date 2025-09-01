@@ -1,4 +1,3 @@
-// lib/screens/RiderGram/Public_Profile_Screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:triprider/screens/RiderGram/Api_client.dart';
@@ -46,13 +45,13 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         } catch (_) {}
       }
 
-      // ✅ 여기서 non-null 로컬 변수로 확정
       final Map<String, dynamic> data = dataNullable ?? const {};
 
       setState(() {
         _nickname = (data['nickname'] ?? widget.nickname ?? '라이더') as String;
         _intro = data['intro'] as String?;
-        _profileImage = (data['profileImage'] ?? data['imageUrl']) as String?;
+        final raw = (data['profileImage'] ?? data['imageUrl']) as String?;
+        _profileImage = (raw == null || raw.trim().isEmpty) ? null : ApiClient.absoluteUrl(raw);
         _totalDistance = data['totalDistance'] as num?;
         _loading = false;
       });
@@ -60,7 +59,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       setState(() { _loading = false; _error = '불러오기 실패: $e'; });
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -79,9 +77,13 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           : SingleChildScrollView(
         child: Column(
           children: [
-            _TopCard(nickname: _nickname, intro: _intro, profileImage: _profileImage, totalDistance: _totalDistance),
+            _TopCard(
+              nickname: _nickname,
+              intro: _intro,
+              profileImage: _profileImage,
+              totalDistance: _totalDistance,
+            ),
             const SizedBox(height: 16),
-            // 필요 시 해당 유저의 게시물/뱃지 등 섹션 추가 가능
           ],
         ),
       ),

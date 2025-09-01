@@ -133,12 +133,7 @@ class Select_Section extends StatelessWidget {
 }
 
 /* =========================
- * DTO
- * ========================= */
-
-
-/* =========================
- * 인기 코스 (커버/상세 공통 유틸 사용)
+ * 인기 코스
  * ========================= */
 
 class Popular_Course extends StatefulWidget {
@@ -285,7 +280,7 @@ class _Popular_CourseState extends State<Popular_Course> {
 }
 
 /* =========================
- * 거리순 섹션 (긴/짧은 토글 + 공통 유틸 사용)
+ * 거리순 섹션
  * ========================= */
 
 class _DistanceSection extends StatefulWidget {
@@ -296,7 +291,7 @@ class _DistanceSection extends StatefulWidget {
 }
 
 class _DistanceSectionState extends State<_DistanceSection> {
-  String _order = 'desc'; // 'desc'(긴 코스 순) / 'asc'(짧은 코스 순)
+  String _order = 'desc'; // 기본 내림차순 ▼
   bool _loading = true;
   String? _error;
   List<RidingCourseCard> _items = [];
@@ -379,25 +374,12 @@ class _DistanceSectionState extends State<_DistanceSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 타이틀 + 정렬 토글
+        // 타이틀 + 정렬 버튼
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-          child: Row(
-            children: [
-              const Text('거리순', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700)),
-              const Spacer(),
-              ChoiceChip(
-                label: const Text('긴 코스 순'),
-                selected: _order == 'desc',
-                onSelected: (_) => _changeOrder('desc'),
-              ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text('짧은 코스 순'),
-                selected: _order == 'asc',
-                onSelected: (_) => _changeOrder('asc'),
-              ),
-            ],
+          child: OrderHeaderRow(
+            current: _order,
+            onChanged: _changeOrder,
           ),
         ),
 
@@ -410,7 +392,7 @@ class _DistanceSectionState extends State<_DistanceSection> {
             crossAxisCount: 2,
             mainAxisSpacing: 16,
             crossAxisSpacing: 12,
-            childAspectRatio: 0.86, // 텍스트 2줄 여유
+            childAspectRatio: 0.86,
           ),
           itemCount: _items.length,
           itemBuilder: (context, i) {
@@ -450,8 +432,6 @@ class _DistanceSectionState extends State<_DistanceSection> {
                               height: double.infinity,
                               fit: BoxFit.cover,
                             ),
-
-                          // 그라데이션(터치 방해 X)
                           Positioned.fill(
                             child: IgnorePointer(
                               ignoring: true,
@@ -466,8 +446,6 @@ class _DistanceSectionState extends State<_DistanceSection> {
                               ),
                             ),
                           ),
-
-                          // 하트 + 숫자
                           Positioned(
                             left: 10,
                             bottom: 10,
@@ -513,6 +491,44 @@ class _DistanceSectionState extends State<_DistanceSection> {
           },
         ),
       ],
+    );
+  }
+}
+
+/* =========================
+ * 거리순 버튼 (▲/▼ 토글)
+ * ========================= */
+
+class OrderHeaderRow extends StatelessWidget {
+  final String current; // 'desc' | 'asc'
+  final ValueChanged<String> onChanged;
+
+  const OrderHeaderRow({
+    super.key,
+    required this.current,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDesc = current == 'desc';
+    return Align(
+      alignment: Alignment.centerRight,
+      child: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+        onPressed: () => onChanged(isDesc ? 'asc' : 'desc'),
+        icon: Icon(
+          isDesc ? Icons.arrow_downward : Icons.arrow_upward,
+          size: 18,
+        ),
+        label: const Text(
+          "거리순",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+      ),
     );
   }
 }

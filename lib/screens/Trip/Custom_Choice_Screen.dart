@@ -178,13 +178,14 @@ class _CustomChoiceScreenState extends State<CustomChoiceScreen> {
   List<CategoryOption> _optsCulture() => [
     CategoryOption(type: 'culture', label: '박물관', presetKey: 'culture.museum'),
     CategoryOption(type: 'culture', label: '기념관', presetKey: 'culture.memorial'),
-    CategoryOption(type: 'culture', label: '미술관', presetKey: 'culture.artmuseum'), // ← 여기!
+    CategoryOption(type: 'culture', label: '미술관', presetKey: 'culture.art'), // ← 여기! (수정 완료)
   ];
+
 
 // 5) 축제/행사(15): 공연 / 축제
   List<CategoryOption> _optsEvent() => [
     CategoryOption(type: 'event', label: '공연', presetKey: 'event.performance'),
-    CategoryOption(type: 'event', label: '축제', presetKey: 'event.festival'),      // ← 여기!
+    CategoryOption(type: 'event', label: '축제', presetKey: 'event.exhibition'),      // ← 여기!(수정 완료)
   ];
 
 
@@ -210,67 +211,67 @@ class _CustomChoiceScreenState extends State<CustomChoiceScreen> {
           ),
 
           SafeArea(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error.isNotEmpty
-                ? Center(child: Text(_error, style: const TextStyle(color: Colors.red)))
-                : // BUILD 내부의 CustomScrollView 부분만 교체
-            CustomScrollView(
-              slivers: [
-                // 1) 핑크 헤더(상단 전체 배경 포함)
-                SliverToBoxAdapter(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
-                    color: _headerPink,
-                    child: const Text(
-                      '원하는 카테고리를 선택하여\n맞춤형 여행 코스를 생성해보세요',
-                      style: TextStyle(
-                        fontSize: 22,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        height: 1.25,
-                      ),
-                    ),
-                  ),
-                ),
-
-                // 2) 본문 시작: 흰색 패널 (둥근 모서리 + 살짝 그림자)
-                SliverToBoxAdapter(
-                  child: Container(
-                    width: double.infinity,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(24),
-                        topRight: Radius.circular(24),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0x14000000), // 아주 은은한 그림자
-                          blurRadius: 12,
-                          offset: Offset(0, -2),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error.isNotEmpty
+                  ? Center(child: Text(_error, style: const TextStyle(color: Colors.red)))
+                  : // BUILD 내부의 CustomScrollView 부분만 교체
+              CustomScrollView(
+                slivers: [
+                  // 1) 핑크 헤더(상단 전체 배경 포함)
+                  SliverToBoxAdapter(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
+                      color: _headerPink,
+                      child: const Text(
+                        '원하는 카테고리를 선택하여\n맞춤형 여행 코스를 생성해보세요',
+                        style: TextStyle(
+                          fontSize: 22,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          height: 1.25,
                         ),
-                      ],
-                    ),
-                    // 패널 안쪽 컨텐츠
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SizedBox(height: 16),          // 패널 상단 여백
-                        _section('관광지', _optsTour()),
-                        _section('음식점', _optsFood()),
-                        _section('레포츠', _optsLeports()),
-                        _section('문화시설', _optsCulture()),
-                        _section('축제/행사', _optsEvent()),
-                        _section('쇼핑', _optsShop()),
-                        const SizedBox(height: 100),         // 하단 버튼과 간격
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            )
+
+                  // 2) 본문 시작: 흰색 패널 (둥근 모서리 + 살짝 그림자)
+                  SliverToBoxAdapter(
+                    child: Container(
+                      width: double.infinity,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(24),
+                          topRight: Radius.circular(24),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x14000000), // 아주 은은한 그림자
+                            blurRadius: 12,
+                            offset: Offset(0, -2),
+                          ),
+                        ],
+                      ),
+                      // 패널 안쪽 컨텐츠
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 16),          // 패널 상단 여백
+                          _section('관광지', _optsTour()),
+                          _section('음식점', _optsFood()),
+                          _section('레포츠', _optsLeports()),
+                          _section('문화시설', _optsCulture()),
+                          _section('축제/행사', _optsEvent()),
+                          _section('쇼핑', _optsShop()),
+                          const SizedBox(height: 100),         // 하단 버튼과 간격
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              )
           ),
         ],
       ),

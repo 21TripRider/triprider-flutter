@@ -1,4 +1,3 @@
-// lib/screens/RiderGram/Comment_Sheet.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
@@ -53,17 +52,15 @@ class _CommentSheetState extends State<CommentSheet> {
     required String nickname,
     int? userId,
   }) async {
-    // 1) 시도할 엔드포인트
     final List<Uri> candidates = [
       if (userId != null) ApiClient.publicUri('/api/users/$userId/profile'),
       if (userId != null) ApiClient.publicUri('/api/users/$userId'),
       ApiClient.publicUri('/api/public/profile', {'nickname': nickname}),
       ApiClient.publicUri('/api/users/profile', {'nickname': nickname}),
       ApiClient.publicUri('/api/users/by-nickname', {'nickname': nickname}),
-      ApiClient.publicUri('/api/profiles', {'q': nickname}), // 검색형
+      ApiClient.publicUri('/api/profiles', {'q': nickname}),
     ];
 
-    // 2) 응답 키 후보
     String? _firstString(Map<String, dynamic> m, List<String> keys) {
       for (final k in keys) {
         final v = m[k];
@@ -84,7 +81,6 @@ class _CommentSheetState extends State<CommentSheet> {
       return null;
     }
 
-    // 3) 순차 호출
     for (final uri in candidates) {
       try {
         final res = await ApiClient.get(uri.path, query: uri.queryParameters);
@@ -99,9 +95,7 @@ class _CommentSheetState extends State<CommentSheet> {
         final id = _firstInt(obj, ['userId', 'id', 'writerId', 'authorId']);
 
         return {'profileImage': img, 'userId': id};
-      } catch (_) {
-        // 다음 후보로
-      }
+      } catch (_) {}
     }
     return null;
   }
@@ -118,7 +112,7 @@ class _CommentSheetState extends State<CommentSheet> {
       );
 
       final fetched = await _fetchProfileFor(nickname: nick, userId: withId.userId);
-      _profileCacheByNick[nick] = fetched ?? {'profileImage': null, 'userId': withId.userId};
+      _profileCacheByNick[nick] = fetched ?? {'profileImage': withId.profileImage, 'userId': withId.userId};
     }
 
     for (final c in _items) {
@@ -275,14 +269,19 @@ class _CommentSheetState extends State<CommentSheet> {
                                 itemCount: _items.length,
                                 itemBuilder: (context, i) {
                                   final c = _items[i];
-                                  final imageUrl = _profileUrlByCommentId[c.id];
+
+                                  // ✅ 댓글 아바타도 절대 URL 보정
+                                  final raw = _profileUrlByCommentId[c.id];
+                                  final abs = (raw != null && raw.isNotEmpty)
+                                      ? ApiClient.absoluteUrl(raw)
+                                      : null;
 
                                   final avatar = CircleAvatar(
                                     radius: 18,
-                                    backgroundImage: (imageUrl != null && imageUrl.isNotEmpty)
-                                        ? NetworkImage(imageUrl)
+                                    backgroundImage: (abs != null)
+                                        ? NetworkImage(abs)
                                         : null,
-                                    child: (imageUrl == null || imageUrl.isEmpty)
+                                    child: (abs == null)
                                         ? Text(
                                       c.user.isNotEmpty ? c.user.characters.first : '?',
                                       style: const TextStyle(color: Colors.white),
@@ -313,20 +312,27 @@ class _CommentSheetState extends State<CommentSheet> {
                                           children: [
                                             InkWell(
                                               onTap: _openProfile,
-                                              child: Text(
-                                                c.user,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.black,
-                                                ),
+                                              child: Row(
+                                                children: [
+                                                  Text(
+                                                    c.user,
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.black,
+                                                    ),
+                                                  ),
+
+                                                  const SizedBox(width: 10),
+
+                                                  Text(
+                                                    _friendlyTime(c.createdAt),
+                                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                                  ),
+
+                                                ],
                                               ),
                                             ),
                                             const SizedBox(height: 2),
-                                            Text(
-                                              _friendlyTime(c.createdAt),
-                                              style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                            ),
-                                            const SizedBox(height: 6),
                                             Text(c.content),
                                           ],
                                         ),

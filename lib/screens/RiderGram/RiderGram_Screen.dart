@@ -159,9 +159,15 @@ class _PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasImage = (post.imageUrl != null && post.imageUrl!.trim().isNotEmpty);
-    final ImageProvider avatar = (post.writerProfileImage != null && post.writerProfileImage!.isNotEmpty)
-        ? NetworkImage(post.writerProfileImage!)
+
+    // ✅ 프로필/본문 이미지 모두 절대 URL로 보정
+    final avatarUrl = (post.writerProfileImage ?? '').trim();
+    final ImageProvider avatar = avatarUrl.isNotEmpty
+        ? NetworkImage(ApiClient.absoluteUrl(avatarUrl))
         : const AssetImage('assets/image/logo.png');
+
+    final String? contentImageUrl =
+    hasImage ? ApiClient.absoluteUrl(post.imageUrl!) : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,11 +188,11 @@ class _PostCard extends StatelessWidget {
         const SizedBox(height: 12),
 
         // [1] 이미지
-        if (hasImage)
+        if (contentImageUrl != null)
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: Image.network(
-              post.imageUrl!,
+              contentImageUrl,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Container(
                 height: 180,
@@ -203,7 +209,7 @@ class _PostCard extends StatelessWidget {
           Text(post.content),
         ],
 
-        // 위치/태그 (원래 순서 유지)
+        // 위치/태그
         if ((post.location ?? '').isNotEmpty) ...[
           const SizedBox(height: 6),
           Text('📍 ${post.location!}', style: const TextStyle(color: Colors.grey)),

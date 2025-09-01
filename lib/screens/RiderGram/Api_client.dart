@@ -1,4 +1,3 @@
-// lib/screens/RiderGram/Api_client.dart
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -9,6 +8,17 @@ class ApiClient {
   static const String baseUrl = 'http://10.0.2.2:8080';
   static const Duration _timeout = Duration(seconds: 15);
   static final http.Client _client = http.Client();
+
+  // --- NEW: URL 보정 헬퍼 -----------------------------------------------------
+  /// 서버가 '/uploads/xx.jpg' 같은 **상대경로**를 줄 때
+  /// 앱에서 바로 쓸 수 있게 **절대 URL**로 변환
+  static String absoluteUrl(String urlOrPath) {
+    final s = urlOrPath.trim();
+    if (s.isEmpty) return s;
+    if (s.startsWith('http://') || s.startsWith('https://')) return s;
+    if (s.startsWith('/')) return '$baseUrl$s';
+    return '$baseUrl/$s';
+  }
 
   // --- Auth & Headers -------------------------------------------------------
   static Future<String?> _getToken() async {
@@ -135,7 +145,7 @@ class ApiClient {
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     final path = (data['url'] ?? data['path']) as String;
-    return path.startsWith('http') ? path : '$baseUrl$path';
+    return absoluteUrl(path);
   }
 
   // --- 공통 에러 처리 --------------------------------------------------------

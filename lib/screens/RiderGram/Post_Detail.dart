@@ -1,4 +1,3 @@
-// lib/screens/RiderGram/Post_Detail.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
@@ -7,13 +6,11 @@ import 'package:triprider/screens/RiderGram/Comment_Sheet.dart';
 import 'package:triprider/screens/RiderGram/Post.dart';
 import 'package:triprider/screens/RiderGram/Public_Profile_Screen.dart';
 
-
-
 class PostDetailScreen extends StatefulWidget {
   const PostDetailScreen({
     super.key,
     required this.postId,
-    this.initial, // 검색 결과에서 넘어올 때 초깃값으로 쓰면 첫 렌더 빠름
+    this.initial,
   });
 
   final int postId;
@@ -31,7 +28,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // initial 있으면 먼저 보여주고 서버로 최신화
     if (widget.initial != null) {
       _post = widget.initial;
       _loading = false;
@@ -52,7 +48,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      // initial 이 없고 fetch 도 실패하면 에러 표시
       setState(() {
         _loading = false;
         _error = '불러오기 실패: $e';
@@ -148,7 +143,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     CircleAvatar(
                       radius: 16,
                       backgroundImage: (p.writerProfileImage != null && p.writerProfileImage!.isNotEmpty)
-                          ? NetworkImage(p.writerProfileImage!)
+                          ? NetworkImage(ApiClient.absoluteUrl(p.writerProfileImage!))
                           : const AssetImage('assets/image/logo.png') as ImageProvider,
                     ),
                     const SizedBox(width: 8),
@@ -163,7 +158,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: Image.network(
-                    p.imageUrl!,
+                    ApiClient.absoluteUrl(p.imageUrl!),
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
                       height: 200, alignment: Alignment.center, color: const Color(0x11000000),
