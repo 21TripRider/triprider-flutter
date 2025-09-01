@@ -26,9 +26,7 @@ class _CommentSheetState extends State<CommentSheet> {
   final _liking = <int>{};
 
   // ==== 프로필 자동 보강/캐시 ====
-  // 닉네임 -> { 'userId': int?, 'profileImage': String? }
   final Map<String, Map<String, dynamic>> _profileCacheByNick = {};
-  // 댓글 ID별 최종 매핑
   final Map<int, String?> _profileUrlByCommentId = {};
   final Map<int, int?> _userIdByCommentId = {};
 
@@ -43,11 +41,10 @@ class _CommentSheetState extends State<CommentSheet> {
     _items
       ..clear()
       ..addAll(list);
-    _hydrateProfiles(); // 비동기 보강
+    _hydrateProfiles();
     return _items;
   }
 
-  // 여러 경로/키를 시도해 { profileImage, userId }를 찾는다.
   Future<Map<String, dynamic>?> _fetchProfileFor({
     required String nickname,
     int? userId,
@@ -86,11 +83,19 @@ class _CommentSheetState extends State<CommentSheet> {
         final res = await ApiClient.get(uri.path, query: uri.queryParameters);
         final body = jsonDecode(res.body);
         final Map<String, dynamic> obj = body is List
-            ? (body.isNotEmpty ? (body.first as Map).cast<String, dynamic>() : const {})
+            ? (body.isNotEmpty
+            ? (body.first as Map).cast<String, dynamic>()
+            : const {})
             : (body as Map).cast<String, dynamic>();
 
         final img = _firstString(obj, [
-          'profileImage', 'profile_image', 'avatarUrl', 'avatar', 'imageUrl', 'url', 'photoUrl',
+          'profileImage',
+          'profile_image',
+          'avatarUrl',
+          'avatar',
+          'imageUrl',
+          'url',
+          'photoUrl',
         ]);
         final id = _firstInt(obj, ['userId', 'id', 'writerId', 'authorId']);
 
@@ -111,8 +116,11 @@ class _CommentSheetState extends State<CommentSheet> {
         orElse: () => _items.firstWhere((c) => c.user == nick),
       );
 
-      final fetched = await _fetchProfileFor(nickname: nick, userId: withId.userId);
-      _profileCacheByNick[nick] = fetched ?? {'profileImage': withId.profileImage, 'userId': withId.userId};
+      final fetched =
+      await _fetchProfileFor(nickname: nick, userId: withId.userId);
+      _profileCacheByNick[nick] =
+          fetched ??
+              {'profileImage': withId.profileImage, 'userId': withId.userId};
     }
 
     for (final c in _items) {
@@ -159,9 +167,8 @@ class _CommentSheetState extends State<CommentSheet> {
       await _refresh();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('삭제 실패: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
     }
   }
 
@@ -191,9 +198,8 @@ class _CommentSheetState extends State<CommentSheet> {
       if (mounted) setState(() {});
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('처리 실패: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('처리 실패: $e')));
     } finally {
       if (mounted) setState(() => _liking.remove(c.id));
     }
@@ -204,6 +210,14 @@ class _CommentSheetState extends State<CommentSheet> {
     _inputCtrl.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  // ==== 새로 추가: URL 정규화 유틸 ====
+  String? _absOrNull(String? raw) {
+    if (raw == null) return null;
+    final s = raw.trim();
+    if (s.isEmpty || s.toLowerCase() == 'null') return null;
+    return ApiClient.absoluteUrl(s);
   }
 
   @override
@@ -243,7 +257,8 @@ class _CommentSheetState extends State<CommentSheet> {
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 8),
                         child: Text('댓글',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
                       ),
                       const Divider(height: 1),
 
@@ -251,11 +266,15 @@ class _CommentSheetState extends State<CommentSheet> {
                         child: FutureBuilder<List<CommentModel>>(
                           future: _future,
                           builder: (context, snap) {
-                            if (snap.connectionState == ConnectionState.waiting && _items.isEmpty) {
-                              return const Center(child: CircularProgressIndicator());
+                            if (snap.connectionState ==
+                                ConnectionState.waiting &&
+                                _items.isEmpty) {
+                              return const Center(
+                                  child: CircularProgressIndicator());
                             }
                             if (snap.hasError) {
-                              return Center(child: Text('불러오기 실패: ${snap.error}'));
+                              return Center(
+                                  child: Text('불러오기 실패: ${snap.error}'));
                             }
                             if (_items.isEmpty) {
                               return const Center(child: Text('첫 댓글을 남겨보세요!'));
@@ -265,28 +284,29 @@ class _CommentSheetState extends State<CommentSheet> {
                               onRefresh: _refresh,
                               child: ListView.builder(
                                 controller: scrollController,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
                                 itemCount: _items.length,
                                 itemBuilder: (context, i) {
                                   final c = _items[i];
 
-                                  // ✅ 댓글 아바타도 절대 URL 보정
+                                  // ✅ 댓글 아바타 절대 URL 보정
                                   final raw = _profileUrlByCommentId[c.id];
-                                  final abs = (raw != null && raw.isNotEmpty)
-                                      ? ApiClient.absoluteUrl(raw)
-                                      : null;
+                                  final abs = _absOrNull(raw);
+
+                                  final ImageProvider avatarProvider = (abs != null)
+                                      ? NetworkImage(abs)
+                                      : const AssetImage('assets/image/logo.png');
 
                                   final avatar = CircleAvatar(
                                     radius: 18,
-                                    backgroundImage: (abs != null)
-                                        ? NetworkImage(abs)
-                                        : null,
-                                    child: (abs == null)
-                                        ? Text(
-                                      c.user.isNotEmpty ? c.user.characters.first : '?',
-                                      style: const TextStyle(color: Colors.white),
-                                    )
-                                        : null,
+                                    backgroundImage: avatarProvider,
+                                    onBackgroundImageError: (_, __) {
+                                      // 실패시 자동으로 로고로 교체하고 싶으면 setState로 다시 그림
+                                      setState(() {
+                                        _profileUrlByCommentId[c.id] = '';
+                                      });
+                                    },
                                   );
 
                                   void _openProfile() {
@@ -302,13 +322,15 @@ class _CommentSheetState extends State<CommentSheet> {
                                   }
 
                                   final contentRow = Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                     children: [
                                       InkWell(onTap: _openProfile, child: avatar),
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                           children: [
                                             InkWell(
                                               onTap: _openProfile,
@@ -317,18 +339,18 @@ class _CommentSheetState extends State<CommentSheet> {
                                                   Text(
                                                     c.user,
                                                     style: const TextStyle(
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight:
+                                                      FontWeight.bold,
                                                       color: Colors.black,
                                                     ),
                                                   ),
-
                                                   const SizedBox(width: 10),
-
                                                   Text(
                                                     _friendlyTime(c.createdAt),
-                                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                                    style: const TextStyle(
+                                                        fontSize: 11,
+                                                        color: Colors.grey),
                                                   ),
-
                                                 ],
                                               ),
                                             ),
@@ -342,14 +364,22 @@ class _CommentSheetState extends State<CommentSheet> {
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           IconButton(
-                                            visualDensity: VisualDensity.compact,
+                                            visualDensity:
+                                            VisualDensity.compact,
                                             padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(),
-                                            onPressed: _liking.contains(c.id) ? null : () => _toggleLike(c),
+                                            constraints:
+                                            const BoxConstraints(),
+                                            onPressed: _liking.contains(c.id)
+                                                ? null
+                                                : () => _toggleLike(c),
                                             icon: Icon(
-                                              c.likedByMe ? Icons.favorite : Icons.favorite_border,
+                                              c.likedByMe
+                                                  ? Icons.favorite
+                                                  : Icons.favorite_border,
                                               size: 22,
-                                              color: c.likedByMe ? Colors.red : Colors.grey[700],
+                                              color: c.likedByMe
+                                                  ? Colors.red
+                                                  : Colors.grey[700],
                                             ),
                                           ),
                                           const SizedBox(height: 2),
@@ -372,23 +402,30 @@ class _CommentSheetState extends State<CommentSheet> {
                                       direction: DismissDirection.endToStart,
                                       background: Container(
                                         alignment: Alignment.centerRight,
-                                        padding: const EdgeInsets.only(right: 16),
+                                        padding:
+                                        const EdgeInsets.only(right: 16),
                                         color: Colors.redAccent,
-                                        child: const Icon(Icons.delete, color: Colors.white),
+                                        child: const Icon(Icons.delete,
+                                            color: Colors.white),
                                       ),
                                       confirmDismiss: (_) async {
                                         return await showDialog<bool>(
                                           context: context,
                                           builder: (_) => AlertDialog(
                                             title: const Text('삭제할까요?'),
-                                            content: const Text('해당 댓글이 게시글에서 삭제됩니다.'),
+                                            content: const Text(
+                                                '해당 댓글이 게시글에서 삭제됩니다.'),
                                             actions: [
                                               TextButton(
-                                                onPressed: () => Navigator.pop(context, false),
+                                                onPressed: () =>
+                                                    Navigator.pop(
+                                                        context, false),
                                                 child: const Text('취소'),
                                               ),
                                               TextButton(
-                                                onPressed: () => Navigator.pop(context, true),
+                                                onPressed: () =>
+                                                    Navigator.pop(
+                                                        context, true),
                                                 child: const Text('삭제'),
                                               ),
                                             ],
@@ -398,14 +435,16 @@ class _CommentSheetState extends State<CommentSheet> {
                                       },
                                       onDismissed: (_) => _delete(c),
                                       child: Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 6),
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 6),
                                         child: contentRow,
                                       ),
                                     );
                                   }
 
                                   return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 6),
+                                    padding:
+                                    const EdgeInsets.symmetric(vertical: 6),
                                     child: contentRow,
                                   );
                                 },
@@ -416,7 +455,8 @@ class _CommentSheetState extends State<CommentSheet> {
                       ),
 
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+                        padding:
+                        const EdgeInsets.fromLTRB(12, 8, 12, 20),
                         child: Row(
                           children: [
                             Expanded(
@@ -426,7 +466,8 @@ class _CommentSheetState extends State<CommentSheet> {
                                 textInputAction: TextInputAction.newline,
                                 decoration: InputDecoration(
                                   hintText: '댓글 추가…',
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 12),
                                   filled: true,
                                   fillColor: Colors.grey[100],
                                   border: OutlineInputBorder(
@@ -441,10 +482,14 @@ class _CommentSheetState extends State<CommentSheet> {
                               onTap: _sending ? null : _send,
                               borderRadius: BorderRadius.circular(20),
                               child: CircleAvatar(
-                                backgroundColor: _sending ? Colors.grey[300] : Colors.black,
+                                backgroundColor: _sending
+                                    ? Colors.grey[300]
+                                    : Colors.black,
                                 child: Icon(
                                   Icons.arrow_upward,
-                                  color: _sending ? Colors.black54 : Colors.white,
+                                  color: _sending
+                                      ? Colors.black54
+                                      : Colors.white,
                                 ),
                               ),
                             ),

@@ -190,13 +190,10 @@ class _StepTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(w.title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 2),
-                if (w.cat1 != null || w.cat2 != null)
-                  Text(
-                    '${w.cat1 ?? ''} ${w.cat2 ?? ''}',
-                    style: const TextStyle(color: Colors.black45),
-                  ),
+                Text(
+                  w.title,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ],
             ),
           ),

@@ -157,9 +157,18 @@ class _CourseCardTile extends StatelessWidget {
       child: Ink(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          // ✅ 살짝 어두운 카드 배경으로 변경
+          color:  Colors.white70,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 10, offset: Offset(0, 6))],
+          // ✅ 미세 테두리로 배경과 더 분리
+          border: Border.all(color: const Color(0xFFE9E9EE)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 10,
+              offset: Offset(0, 6),
+            ),
+          ],
         ),
         child: Row(
           children: [
