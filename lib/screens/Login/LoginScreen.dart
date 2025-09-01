@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+import 'package:kakao_flutter_sdk_common/kakao_flutter_sdk_common.dart'; // (옵션) KakaoClientException 사용 시
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -73,7 +75,7 @@ class _LoginscreenState extends State<Loginscreen> {
             SocialLoginButton(
               color: Colors.yellow,
               assetPath: 'assets/image/kakaotalk.png',
-              text: '카카오로 로그인',
+              text: '카카오톡으로 로그인',
               textColor: Colors.black,
               onPressed: _loginWithKakao,
             ),
@@ -116,10 +118,33 @@ class _LoginscreenState extends State<Loginscreen> {
   Future<void> _loginWithKakao() async {
     try {
       OAuthToken token;
+
       if (await isKakaoTalkInstalled()) {
-        token = await UserApi.instance.loginWithKakaoTalk();
+        try {
+          token = await UserApi.instance.loginWithKakaoTalk();
+        } on PlatformException catch (e) {
+          if (e.code == 'CANCELED' || e.code == 'CANCELLED') return; // ✅ 사용자 취소는 조용히 무시
+          rethrow;
+        } on KakaoAuthException catch (e) {
+          if (e.error == AuthErrorCause.accessDenied) return; // ✅ 동의 화면에서 취소
+          rethrow;
+        } on KakaoClientException catch (e) {
+          if (e.reason == ClientErrorCause.cancelled) return; // ✅ (옵션) 기타 취소
+          rethrow;
+        }
       } else {
-        token = await UserApi.instance.loginWithKakaoAccount();
+        try {
+          token = await UserApi.instance.loginWithKakaoAccount();
+        } on PlatformException catch (e) {
+          if (e.code == 'CANCELED' || e.code == 'CANCELLED') return;
+          rethrow;
+        } on KakaoAuthException catch (e) {
+          if (e.error == AuthErrorCause.accessDenied) return;
+          rethrow;
+        } on KakaoClientException catch (e) {
+          if (e.reason == ClientErrorCause.cancelled) return;
+          rethrow;
+        }
       }
 
       final accessToken = token.accessToken;
@@ -133,11 +158,23 @@ class _LoginscreenState extends State<Loginscreen> {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'accessToken': accessToken}),
       );
-      await _handleAuthResponse(res); // ← 서버의 needNickname 판단에 따름
+      await _handleAuthResponse(res);
+
+    } on KakaoAuthException catch (e) {
+      if (e.error == AuthErrorCause.accessDenied) return; // ✅ 취소는 스낵바 X
+      _showSnackBar('카카오 로그인 오류: ${e.error}');
+    } on KakaoClientException catch (e) {
+      if (e.reason == ClientErrorCause.cancelled) return; // ✅ 취소는 스낵바 X
+      _showSnackBar('카카오 로그인 오류: ${e.reason}');
+    } on PlatformException catch (e) {
+      if (e.code == 'CANCELED' || e.code == 'CANCELLED') return; // ✅ 취소는 스낵바 X
+      _showSnackBar('카카오 로그인 오류: ${e.message ?? e.code}');
     } catch (e) {
       _showSnackBar('카카오 로그인 오류: $e');
     }
   }
+
+
 
   // =================== 구글 로그인 ===================
   Future<void> _loginWithGoogle() async {
