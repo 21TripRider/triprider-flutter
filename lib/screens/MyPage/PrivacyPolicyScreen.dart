@@ -49,6 +49,12 @@ class PrivacyPolicyScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.grey[100], // 배경 살짝 회색
       appBar: AppBar(
+
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new),
+        ),
+
         title: const Text("개인정보처리방침"),
         centerTitle: true,
         backgroundColor: const Color(0xFFFF4E6B),

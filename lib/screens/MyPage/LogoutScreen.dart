@@ -78,6 +78,12 @@ class LogoutScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
+
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new),
+        ),
+
         title: const Text("로그아웃"),
         centerTitle: true,
         backgroundColor: const Color(0xFFFF4E6B),

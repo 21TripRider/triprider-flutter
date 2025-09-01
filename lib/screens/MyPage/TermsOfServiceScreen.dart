@@ -49,6 +49,12 @@ class TermsOfServiceScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.grey[100], // ✅ 배경 통일
       appBar: AppBar(
+
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new),
+        ),
+
         title: const Text("이용약관"),
         centerTitle: true,
         backgroundColor: const Color(0xFFFF4E6B),
