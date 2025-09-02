@@ -201,9 +201,4 @@ class _StepTile extends StatelessWidget {
       ),
     );
   }
-<<<<<<< HEAD
 }
-=======
-}
-
->>>>>>> b47424897f2432cc10fcdc5d699aec9190a8c11b
