@@ -3,7 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:triprider/screens/MyPage/Ride_Record_Detail.dart';
+import 'package:triprider/screens/Map/API/Ride_Api.dart';
+import 'package:triprider/core/network/api_client.dart';
 
 class RecordScreen extends StatefulWidget {
   const RecordScreen({super.key});
@@ -21,6 +22,7 @@ class _RecordScreenState extends State<RecordScreen> {
   void initState() {
     super.initState();
     _loadRecords();
+    _loadSummaryFromServer();
   }
 
   Future<void> _loadRecords() async {
@@ -52,6 +54,40 @@ class _RecordScreenState extends State<RecordScreen> {
       _totalKm = km;
       _totalSeconds = secs;
     });
+  }
+
+  Future<void> _loadSummaryFromServer() async {
+    try {
+      final s = await RideApi.getSummary();
+      final totalKm = ((s['totalKm'] as num?)?.toDouble() ?? 0.0);
+      final totalSeconds = (s['totalSeconds'] as num?)?.toInt() ?? 0;
+      setState(() {
+        _totalKm = totalKm; // 서버 권위값으로 덮어씀
+        _totalSeconds = totalSeconds;
+      });
+    } catch (_) {}
+    try {
+      final list = await RideApi.listRides();
+      // 서버 목록의 스냅샷/경로를 로컬 표시 포맷으로 매핑 (간단히 날짜/거리/시간만 반영)
+      final mapped = <Map<String, dynamic>>[];
+      for (final r in list) {
+        mapped.add({
+          'startedAt': r['startedAt'],
+          'endedAt': r['finishedAt'],
+          'elapsedSeconds': r['movingSeconds'] ?? r['elapsedSeconds'],
+          'distanceMeters': ((r['totalKm'] as num?)?.toDouble() ?? 0.0) * 1000.0,
+          'avgSpeedKmh': r['avgSpeedKmh'],
+          'maxSpeedKmh': r['maxSpeedKmh'],
+          'imagePath': ApiClient.absoluteUrl(r['routeImageUrl'] ?? ''),
+          'path': null,
+        });
+      }
+      if (mapped.isNotEmpty) {
+        setState(() {
+          _records = mapped;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -117,6 +153,7 @@ class _RecordScreenState extends State<RecordScreen> {
               final max = (r['maxSpeedKmh'] as num?)?.toDouble() ?? 0.0;
               final time = _formatHms((r['elapsedSeconds'] as num?)?.toInt() ?? 0);
               final imagePath = r['imagePath'] as String?;
+              final routePath = (r['path'] as List?)?.cast<Map<String, dynamic>>();
               return _buildRideCard(
                 date: date,
                 location: null,
@@ -125,13 +162,8 @@ class _RecordScreenState extends State<RecordScreen> {
                 maxSpeed: max.toStringAsFixed(1),
                 time: time,
                 imagePath: imagePath,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => RideRecordDetail(record: r),
-                    ),
-                  );
-                },
+                routePath: routePath,
+                onTap: null,
               );
             }),
         ],
@@ -180,6 +212,7 @@ class _RecordScreenState extends State<RecordScreen> {
     required String maxSpeed,
     required String time,
     String? imagePath,
+    List<Map<String, dynamic>>? routePath,
     VoidCallback? onTap,
   }) {
     return InkWell(
@@ -195,6 +228,36 @@ class _RecordScreenState extends State<RecordScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_buildImageWidget(imagePath) != null)
+              AspectRatio(
+                aspectRatio: 4 / 3,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: _buildImageWidget(imagePath)!,
+                ),
+              )
+            else if (routePath != null && routePath.isNotEmpty)
+              AspectRatio(
+                aspectRatio: 4 / 3,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: CustomPaint(
+                    painter: _RouteThumbPainter(routePath),
+                    child: Container(color: Colors.white),
+                  ),
+                ),
+              )
+            else
+              Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: Text('이미지 없음', style: TextStyle(color: Colors.grey.shade600)),
+              ),
+            const SizedBox(height: 12),
             // 날짜 & 거리
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -235,6 +298,25 @@ class _RecordScreenState extends State<RecordScreen> {
     );
   }
 
+  Widget? _buildImageWidget(String? path) {
+    if (path == null) return null;
+    final s = path.trim();
+    if (s.isEmpty) return null;
+    final isHttp = s.startsWith('http://') || s.startsWith('https://');
+    if (isHttp) {
+      return Image.network(
+        s,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(color: Colors.black12),
+      );
+    }
+    final f = File(s);
+    if (f.existsSync()) {
+      return Image.file(f, fit: BoxFit.cover);
+    }
+    return null;
+  }
+
   Widget _buildRideInfo(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,4 +327,51 @@ class _RecordScreenState extends State<RecordScreen> {
       ],
     );
   }
+}
+
+class _RouteThumbPainter extends CustomPainter {
+  _RouteThumbPainter(this.path);
+  final List<Map<String, dynamic>> path; // [{'lat':..,'lon':..}, ...]
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (path.isEmpty) return;
+    double minLat = double.infinity, maxLat = -double.infinity;
+    double minLon = double.infinity, maxLon = -double.infinity;
+    for (final p in path) {
+      final lat = (p['lat'] as num).toDouble();
+      final lon = (p['lon'] as num).toDouble();
+      if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
+      if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon;
+    }
+    final latSpan = (maxLat - minLat).abs().clamp(1e-6, 1.0);
+    final lonSpan = (maxLon - minLon).abs().clamp(1e-6, 1.0);
+    final pad = 12.0;
+    final w = size.width - pad * 2;
+    final h = size.height - pad * 2;
+    Offset project(double lat, double lon) {
+      final x = ((lon - minLon) / lonSpan) * w + pad;
+      final y = h - ((lat - minLat) / latSpan) * h + pad; // 위가 북쪽
+      return Offset(x, y);
+    }
+    final paint = Paint()
+      ..color = const Color(0xFF1565C0)
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final pathDraw = Path();
+    bool first = true;
+    for (final p in path) {
+      final o = project((p['lat'] as num).toDouble(), (p['lon'] as num).toDouble());
+      if (first) { pathDraw.moveTo(o.dx, o.dy); first = false; }
+      else { pathDraw.lineTo(o.dx, o.dy); }
+    }
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0,0,size.width,size.height), const Radius.circular(12)), Paint()..color=const Color(0xFFF6F6F6));
+    canvas.drawPath(pathDraw, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RouteThumbPainter oldDelegate) => oldDelegate.path != path;
 }
