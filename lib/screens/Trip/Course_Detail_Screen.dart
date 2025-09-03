@@ -3,11 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-<<<<<<< HEAD
 import 'package:triprider/core/network/Api_client.dart'; // 저장 API 호출
-=======
-import 'package:triprider/screens/RiderGram/Api_client.dart'; // 저장 API 호출
->>>>>>> f760e026460b07402064732649d558994b487b74
 import 'package:triprider/screens/Trip/Riding_Course_Screen.dart';
 import 'package:triprider/screens/trip/models.dart';
 
@@ -271,24 +267,16 @@ void showMotoPopup(
     BuildContext context, {
       required String title,
       required String message,
-<<<<<<< HEAD
       bool isError = false,
       Duration duration = const Duration(milliseconds: 2400),
     }) {
   // 2) 루트 오버레이 사용 → 키보드/다이얼로그 위에도 뜸
   final overlay = Overlay.of(context, rootOverlay: true);
-=======
-      bool isError = false, // 현재 스타일에서는 색 변경 안 하고 동일 처리
-      Duration duration = const Duration(milliseconds: 2400),
-    }) {
-  final overlay = Overlay.of(context);
->>>>>>> f760e026460b07402064732649d558994b487b74
   if (overlay == null) return;
 
   late OverlayEntry entry;
   bool closed = false;
   void safeRemove() {
-<<<<<<< HEAD
     if (!closed && entry.mounted) { closed = true; entry.remove(); }
   }
 
@@ -300,26 +288,12 @@ void showMotoPopup(
       return Stack(
         children: [
           // (옵션) 빈 곳 탭하면 닫기
-=======
-    if (!closed && entry.mounted) {
-      closed = true;
-      entry.remove();
-    }
-  }
-
-  entry = OverlayEntry(
-    builder: (ctx) => SafeArea(
-      child: Stack(
-        children: [
-          // 바깥 터치시 닫힘
->>>>>>> f760e026460b07402064732649d558994b487b74
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onTap: safeRemove,
             ),
           ),
-<<<<<<< HEAD
 
           // 1) 상단 고정
           Positioned(
@@ -378,97 +352,14 @@ void showMotoPopup(
                         style: const TextStyle(fontSize: 14.5, height: 1.35, color: Colors.black87),
                       ),
                     ],
-=======
-          // 중상단 정렬
-          Positioned.fill(
-            child: Align(
-              alignment: const Alignment(0, -0.35),
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                builder: (_, t, child) => Opacity(
-                  opacity: t,
-                  child: Transform.translate(
-                    offset: Offset(0, (1 - t) * 12),
-                    child: child,
-                  ),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: Container(
-                    width: MediaQuery.of(context).size.width * 0.88,
-                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-                    decoration: BoxDecoration(
-                      // ✅ 로그인 팝업과 동일: 흰색 + 살짝 투명
-                      color: Colors.white.withOpacity(0.7),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 16,
-                          offset: Offset(0, 6),
-                        ),
-                      ],
-                      border: Border.all(color: const Color(0xFFE9E9EE)),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 헤더 (저장 아이콘 + 제목)
-                        Row(
-                          children: [
-                            const Icon(Icons.save_rounded, color: Colors.pink),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                title,
-                                // ✅ 로그인 팝업과 동일한 타이틀 스타일
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w400,
-                                  color: Colors.black.withOpacity(0.9),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        // ✅ 내부 회색 구분선
-                        const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
-                        const SizedBox(height: 10),
-                        // 본문 메시지
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            // 로그인 팝업과 동일하게 본문은 텍스트만 (아이콘 X)
-                          ],
-                        ),
-                        Text(
-                          message,
-                          style: const TextStyle(
-                            fontSize: 14.5,
-                            height: 1.35,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
->>>>>>> f760e026460b07402064732649d558994b487b74
                   ),
                 ),
               ),
             ),
           ),
         ],
-<<<<<<< HEAD
       );
     },
-=======
-      ),
-    ),
->>>>>>> f760e026460b07402064732649d558994b487b74
   );
 
   overlay.insert(entry);
