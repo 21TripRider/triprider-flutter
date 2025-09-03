@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:triprider/core/network/api_client.dart';
+import 'package:triprider/core/network/Api_client.dart';
 
 /// 주행기록 백엔드 연동 API
 class RideApi {
