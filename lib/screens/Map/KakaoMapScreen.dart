@@ -323,7 +323,24 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
                     onTap: () async {
                       final lat = (m['lat'] as num).toDouble();
                       final lon = (m['lon'] as num).toDouble();
-                      try { await _channel.moveCamera(lat: lat, lon: lon, zoomLevel: 16); } catch (_) {}
+                      final name = (m['name'] as String?) ?? '';
+                      try {
+                        _suppressPoiOnce = true; // 탭 이동 시 즉시 재조회 억제
+                        await _channel.animateCamera(lat: lat, lon: lon, zoomLevel: 16, durationMs: 350);
+                        // 라벨은 유지하고, 포커스 마커만 교체
+                        try { await _channel.clearMarkers(); } catch (_) {}
+                        // focus marker: type=poi, color=blue
+                        await _channel.setMarkers([
+                          {
+                            'id': 999001,
+                            'lat': lat,
+                            'lon': lon,
+                            'title': name,
+                            'type': 'poi',
+                            'color': 'blue',
+                          }
+                        ]);
+                      } catch (_) {}
                     },
                   );
                 },
@@ -759,6 +776,20 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     }
     _pois = _withDistance(lat, lon, maps);
     setState(() {});
+
+    // 강제 라벨 반영: VM이 라벨을 세팅했더라도 화면에서 한 번 더 보장 적용
+    final labels = <Map<String, dynamic>>[];
+    final prefix = (_activeFilter == 'gas') ? '⛽ ' : (_activeFilter == 'moto') ? '🏍️ ' : '';
+    for (final m in maps) {
+      labels.add({'name': '$prefix${m['name']}', 'lat': m['lat'], 'lon': m['lon'], 'id': m['id']});
+    }
+    () async {
+      try { await _channel.setLabels(labels); } catch (_) {}
+      // 사용자 위치 라벨 재표시 보장
+      if (_lat != null && _lon != null) {
+        try { await _channel.setUserLocation(lat: _lat!, lon: _lon!); } catch (_) {}
+      }
+    }();
   }
 }
 
