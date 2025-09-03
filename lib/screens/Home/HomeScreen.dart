@@ -12,9 +12,6 @@ import 'package:triprider/widgets/Bottom_App_Bar.dart';
 import 'package:triprider/screens/Home/Weather/WeatherApi.dart';
 import 'package:triprider/screens/Home/Weather/WeatherResponse.dart';
 
-// 상세 화면 이동용
-import 'package:triprider/screens/MyPage/Ride_Record_Detail.dart';
-
 class Homescreen extends StatefulWidget {
   const Homescreen({super.key});
 
@@ -428,12 +425,6 @@ class _RecordState extends State<_Record> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => RideRecordDetail(record: r)),
-            );
-          },
           child: Ink(
             decoration: BoxDecoration(
               color: Colors.white,
