@@ -38,10 +38,11 @@ class _LoginscreenState extends State<Loginscreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // 이메일 / 비밀번호 입력
             _InputField(
               label: "이메일 주소",
               controller: emailController,
@@ -53,11 +54,14 @@ class _LoginscreenState extends State<Loginscreen> {
               onClear: () => passwordController.clear(),
               obscure: true,
             ),
+            const SizedBox(height: 30),
+
+            // 로그인 버튼
             LoginScreenButton(
-              T: 20,
-              B: 80,
-              L: 17,
-              R: 17,
+              T: 15,
+              B: 15,
+              L: 0,
+              R: 0,
               color: const Color(0XFFFF4E6B),
               onPressed: _loginWithEmail,
               child: const Text(
@@ -69,8 +73,13 @@ class _LoginscreenState extends State<Loginscreen> {
                 ),
               ),
             ),
+
+            const SizedBox(height: 40),
+
+            // 구분선
             const _Or(),
             const SizedBox(height: 30),
+<<<<<<< HEAD
             // 소셜 로그인 버튼들 (아래쪽에 배치)
             Padding(
               padding: const EdgeInsets.only(left: 20,right: 20),
@@ -91,11 +100,32 @@ class _LoginscreenState extends State<Loginscreen> {
                         const SizedBox(width: 12),
                       ],
                     ),
+=======
+
+            // 소셜 로그인 버튼들 (아래쪽에 배치)
+            GestureDetector(
+              onTap: _loginWithKakao,
+              child: Container(
+                width: double.infinity,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEE500), // 카카오 노란색
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset('assets/image/kakao_login.png', height: 50),
+                      const SizedBox(width: 12),
+                    ],
+>>>>>>> f760e026460b07402064732649d558994b487b74
                   ),
                 ),
               ),
             ),
             const SizedBox(height: 16),
+<<<<<<< HEAD
             Padding(
               padding: const EdgeInsets.only(left: 20,right: 20),
               child: GestureDetector(
@@ -116,6 +146,25 @@ class _LoginscreenState extends State<Loginscreen> {
                         const SizedBox(width: 12),
                       ],
                     ),
+=======
+            GestureDetector(
+              onTap: _loginWithGoogle,
+              child: Container(
+                width: double.infinity,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF2F2F2), // 구글 버튼 배경
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset('assets/image/google_login.png', height: 50),
+                      const SizedBox(width: 12),
+                    ],
+>>>>>>> f760e026460b07402064732649d558994b487b74
                   ),
                 ),
               ),
@@ -154,6 +203,7 @@ class _LoginscreenState extends State<Loginscreen> {
       OAuthToken token;
 
       if (await isKakaoTalkInstalled()) {
+<<<<<<< HEAD
         try {
           token = await UserApi.instance.loginWithKakaoTalk();
         } on PlatformException catch (e) {
@@ -166,19 +216,11 @@ class _LoginscreenState extends State<Loginscreen> {
           if (e.reason == ClientErrorCause.cancelled) return;
           rethrow;
         }
+=======
+        token = await UserApi.instance.loginWithKakaoTalk();
+>>>>>>> f760e026460b07402064732649d558994b487b74
       } else {
-        try {
-          token = await UserApi.instance.loginWithKakaoAccount();
-        } on PlatformException catch (e) {
-          if (e.code == 'CANCELED' || e.code == 'CANCELLED') return;
-          rethrow;
-        } on KakaoAuthException catch (e) {
-          if (e.error == AuthErrorCause.accessDenied) return;
-          rethrow;
-        } on KakaoClientException catch (e) {
-          if (e.reason == ClientErrorCause.cancelled) return;
-          rethrow;
-        }
+        token = await UserApi.instance.loginWithKakaoAccount();
       }
 
       final accessToken = token.accessToken;
@@ -193,6 +235,7 @@ class _LoginscreenState extends State<Loginscreen> {
         body: jsonEncode({'accessToken': accessToken}),
       );
       await _handleAuthResponse(res);
+<<<<<<< HEAD
     } on KakaoAuthException catch (e) {
       if (e.error == AuthErrorCause.accessDenied) return;
       _showPopup('카카오 로그인 오류', '${e.error}', type: PopupType.error);
@@ -202,6 +245,8 @@ class _LoginscreenState extends State<Loginscreen> {
     } on PlatformException catch (e) {
       if (e.code == 'CANCELED' || e.code == 'CANCELLED') return;
       _showPopup('카카오 로그인 오류', e.message ?? e.code, type: PopupType.error);
+=======
+>>>>>>> f760e026460b07402064732649d558994b487b74
     } catch (e) {
       _showPopup('카카오 로그인 오류', '$e', type: PopupType.error);
     }
@@ -214,7 +259,12 @@ class _LoginscreenState extends State<Loginscreen> {
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) return;
 
+<<<<<<< HEAD
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+=======
+      final GoogleSignInAuthentication googleAuth =
+      await googleUser.authentication;
+>>>>>>> f760e026460b07402064732649d558994b487b74
       final accessToken = googleAuth.accessToken;
       if (accessToken == null) {
         _showPopup('로그인 오류', 'Google access token을 가져올 수 없습니다.', type: PopupType.error);
@@ -276,6 +326,7 @@ class _LoginscreenState extends State<Loginscreen> {
       return;
     }
 
+<<<<<<< HEAD
     // 실패: 사용자 친화 메시지 매핑
     String msg;
     switch (res.statusCode) {
@@ -297,6 +348,29 @@ class _LoginscreenState extends State<Loginscreen> {
         break;
       default:
         msg = _extractMessage(res.body) ?? '로그인에 실패했어요. 잠시 후 다시 시도해 주세요.';
+=======
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final token = (data['token'] ?? '') as String;
+    final needNickname = (data['needNickname'] ?? false) as bool;
+    final isNewUser = (data['isNewUser'] ?? false) as bool;
+    final nickname = (data['nickname'] ?? '') as String;
+
+    if (token.isEmpty) {
+      _showSnackBar('토큰이 비어있습니다.');
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('jwt', token);
+    await prefs.setString('nickname', nickname);
+
+    if (isNewUser || needNickname) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const SocialNickname()),
+      );
+    } else {
+      _goHome();
+>>>>>>> f760e026460b07402064732649d558994b487b74
     }
     _showPopup('로그인 실패', msg, type: PopupType.error);
   }
@@ -306,6 +380,7 @@ class _LoginscreenState extends State<Loginscreen> {
     final raw = prefs.getString('nickname')?.trim();
     final display = (raw != null && raw.isNotEmpty) ? raw : '라이더';
 
+<<<<<<< HEAD
     _showPopup('환영합니다', '$display님, 오늘도 안전 라이딩 하세요!', type: PopupType.success);
     if (!mounted) return;
     await Future.delayed(const Duration(milliseconds: 400));
@@ -317,6 +392,35 @@ class _LoginscreenState extends State<Loginscreen> {
   // =================== 커스텀 팝업(중상단) ===================
   void _showPopup(String title, String message, {PopupType type = PopupType.info}) {
     showTripriderPopup(context, title: title, message: message, type: type);
+=======
+    _showSnackBar('$display님, 오늘도 안전 라이딩 하세요!');
+    if (!mounted) return;
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const Homescreen()));
+  }
+
+  // =================== 공용 UI helpers ===================
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+>>>>>>> f760e026460b07402064732649d558994b487b74
   }
 }
 
@@ -338,7 +442,7 @@ class _InputField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -346,7 +450,7 @@ class _InputField extends StatelessWidget {
           TextField(
             controller: controller,
             obscureText: obscure,
-            style: const TextStyle(fontSize: 20),
+            style: const TextStyle(fontSize: 18),
             decoration: InputDecoration(
               suffixIcon: IconButton(
                 icon: const Icon(Icons.close),
@@ -371,6 +475,7 @@ class _Or extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
     return const Padding(
       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Row(
@@ -420,6 +525,14 @@ class SocialLoginButton extends StatelessWidget {
           ),
         ],
       ),
+=======
+    return const Row(
+      children: [
+        Expanded(child: Divider(thickness: 1.5, color: Colors.black, endIndent: 12)),
+        Text("or", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+        Expanded(child: Divider(thickness: 1.5, color: Colors.black, indent: 12)),
+      ],
+>>>>>>> f760e026460b07402064732649d558994b487b74
     );
   }
 }
