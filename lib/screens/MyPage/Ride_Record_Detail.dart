@@ -41,6 +41,12 @@ class RideRecordDetail extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new),
+        ),
+
         title: Text('주행 기록'),
       ),
       body: ListView(
@@ -53,7 +59,7 @@ class RideRecordDetail extends StatelessWidget {
                 children: [
                   Text(
                     '${startedAt.year}.${startedAt.month.toString().padLeft(2, '0')}.${startedAt.day.toString().padLeft(2, '0')}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   _row('주행 시간', formatHms(elapsedSeconds)),
@@ -74,8 +80,8 @@ class RideRecordDetail extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(k, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-          Text(v, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          Text(k, style: const TextStyle(color: Colors.grey, fontSize: 20)),
+          Text(v, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
         ],
       ),
     );

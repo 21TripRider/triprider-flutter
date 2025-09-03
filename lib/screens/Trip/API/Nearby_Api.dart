@@ -1,7 +1,7 @@
 // lib/screens/Trip/shared/nearby_api.dart
 import 'dart:convert';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:triprider/screens/RiderGram/Api_client.dart';
+import 'package:triprider/core/network/Api_client.dart';
 
 /// 백엔드 카테고리와 1:1 매핑된 섹터
 enum NearbyCategory {

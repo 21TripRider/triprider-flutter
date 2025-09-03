@@ -1,17 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:triprider/screens/RiderGram/Api_client.dart';
+import 'package:triprider/core/network/Api_client.dart';
 import 'package:triprider/screens/Trip/Course_Detail_Screen.dart';
 
 import 'package:triprider/screens/trip/models.dart';
 
 class MyCourseCardList extends StatefulWidget {
-  const MyCourseCardList({
-    super.key,
-    this.shrinkWrap = false,
-    this.physics,
-  });
+  const MyCourseCardList({super.key, this.shrinkWrap = false, this.physics});
 
   final bool shrinkWrap;
   final ScrollPhysics? physics;
@@ -42,14 +39,16 @@ class _MyCourseCardListState extends State<MyCourseCardList> {
 
       final res = await ApiClient.get(
         '/api/custom/courses/mine',
-        headers: { if (uid != null) 'X-USER-ID': '$uid' },
-        query: { 'page': 1, 'size': 50 },
+        headers: {if (uid != null) 'X-USER-ID': '$uid'},
+        query: {'page': 1, 'size': 50},
       );
 
       final List list = jsonDecode(res.body);
       _items
         ..clear()
-        ..addAll(list.map((e) => CourseCard.fromJson(e)).toList().cast<CourseCard>());
+        ..addAll(
+          list.map((e) => CourseCard.fromJson(e)).toList().cast<CourseCard>(),
+        );
 
       setState(() => _loading = false);
     } catch (e) {
@@ -63,18 +62,22 @@ class _MyCourseCardListState extends State<MyCourseCardList> {
   Future<void> _deleteCourse(CourseCard c) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("코스 삭제"),
-        content: Text("'${c.title}' 코스를 삭제하시겠습니까?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("취소")),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text("삭제"),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text("코스 삭제"),
+            content: Text("'${c.title}' 코스를 삭제하시겠습니까?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("취소", style: TextStyle(color: Colors.black)),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red[50]),
+                child: const Text("삭제", style: TextStyle(color: Colors.black)),
+              ),
+            ],
           ),
-        ],
-      ),
     );
 
     if (confirm != true) return;
@@ -85,13 +88,23 @@ class _MyCourseCardListState extends State<MyCourseCardList> {
         _items.removeWhere((e) => e.id == c.id);
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("코스가 삭제되었습니다.")),
+
+      // ✅ 하단 스낵바 대신, 화면 중상단 오버레이 토스트
+      _showTopToast(
+        context,
+        message: "코스가 삭제되었습니다.",
+        iconColor: Colors.redAccent,
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("삭제 실패: $e")),
+
+      // 실패 토스트(빨간 에러 아이콘)
+      _showTopToast(
+        context,
+        message: "삭제 실패: $e",
+        icon: Icons.error_rounded,
+        iconColor: Colors.redAccent,
+        duration: const Duration(milliseconds: 2200),
       );
     }
   }
@@ -121,13 +134,20 @@ class _MyCourseCardListState extends State<MyCourseCardList> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => CourseDetailScreen.view(view: view), // <-- 저장된 코스는 view
+                  builder:
+                      (_) => CourseDetailScreen.view(
+                        view: view,
+                      ), // <-- 저장된 코스는 view
                 ),
               );
             } catch (e) {
               if (!mounted) return;
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text('상세 불러오기 실패: $e')));
+              _showTopToast(
+                context,
+                message: '상세 불러오기 실패: $e',
+                icon: Icons.error_outline_rounded,
+                iconColor: Colors.redAccent,
+              );
             }
           },
           onDelete: () => _deleteCourse(c),
@@ -157,10 +177,9 @@ class _CourseCardTile extends StatelessWidget {
       child: Ink(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          // ✅ 살짝 어두운 카드 배경으로 변경
-          color:  Colors.white70,
+          // ✅ 살짝 밝은 카드 배경
+          color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          // ✅ 미세 테두리로 배경과 더 분리
           border: Border.all(color: const Color(0xFFE9E9EE)),
           boxShadow: const [
             BoxShadow(
@@ -188,7 +207,13 @@ class _CourseCardTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       preview,
@@ -204,11 +229,143 @@ class _CourseCardTile extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.delete, color: Colors.red),
                 onPressed: onDelete,
+                tooltip: '삭제',
               ),
             const Icon(Icons.chevron_right),
           ],
         ),
       ),
+    );
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+ * 여기부터: 화면 중상단 오버레이 토스트 구현 (이 파일만으로 동작)
+ * 사용: _showTopToast(context, message: '완료');
+ * ────────────────────────────────────────────────────────────── */
+
+void _showTopToast(
+  BuildContext context, {
+  required String message,
+  IconData icon = Icons.check_circle_rounded,
+  Color iconColor = const Color(0xFFFF4D6D),
+  Duration duration = const Duration(milliseconds: 1800),
+  double? topOffset,
+}) {
+  final overlay = Overlay.of(context);
+  if (overlay == null) return;
+
+  late OverlayEntry entry; // ✅ 먼저 선언
+
+  entry = OverlayEntry(
+    builder: (ctx) {
+      final media = MediaQuery.of(ctx);
+      final double top = topOffset ?? media.padding.top + 72;
+
+      return Positioned(
+        top: top,
+        left: 0,
+        right: 0,
+        child: _ToastAnimated(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: ShapeDecoration(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    color: Colors.white,
+                    shadows: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.12),
+                        blurRadius: 18,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: iconColor.withOpacity(.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(icon, color: iconColor, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Text(
+                          message,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  overlay.insert(entry);
+
+  Future.delayed(duration, () {
+    if (entry.mounted) entry.remove();
+  });
+}
+
+class _ToastAnimated extends StatefulWidget {
+  final Widget child;
+  const _ToastAnimated({required this.child});
+
+  @override
+  State<_ToastAnimated> createState() => _ToastAnimatedState();
+}
+
+class _ToastAnimatedState extends State<_ToastAnimated>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 260),
+  )..forward();
+  late final Animation<Offset> _offset = Tween(
+    begin: const Offset(0, -0.06),
+    end: Offset.zero,
+  ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutCubic));
+  late final Animation<double> _opacity = CurvedAnimation(
+    parent: _c,
+    curve: Curves.easeOut,
+  );
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(position: _offset, child: widget.child),
     );
   }
 }

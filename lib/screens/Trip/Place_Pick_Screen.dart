@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:triprider/screens/RiderGram/Api_client.dart';
+import 'package:triprider/core/network/Api_client.dart';
 import 'package:triprider/screens/Trip/Course_Detail_Screen.dart';
-
 import 'package:triprider/screens/trip/models.dart';
 
 class PlacePickScreen extends StatefulWidget {
@@ -173,10 +172,9 @@ class _PlacePickScreenState extends State<PlacePickScreen>
   }
 
   Future<void> _preview() async {
+    // ✅ 스낵바 → 중상단 배너형 팝업(다른 디자인)
     if (_selectionId == null || _picked.length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('두 곳 이상 선택해 주세요.')),
-      );
+      showMinPickPopup(context, message: '두 곳 이상 선택해 주세요.');
       return;
     }
     try {
@@ -409,7 +407,11 @@ class _PlacePickScreenState extends State<PlacePickScreen>
         polylineId: const PolylineId('route'),
         points: pts,
         width: 4,
-        patterns: [PatternItem.dash(20), PatternItem.gap(8)],
+        // const 사용 금지 (메서드 호출이라 에러)
+        patterns: <PatternItem>[
+          PatternItem.dash(20),
+          PatternItem.gap(8),
+        ],
         color: Colors.red,
       ),
     };
@@ -505,7 +507,8 @@ class _PlaceTile extends StatelessWidget {
         width: 84,
         height: 84,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Image.asset(_defaultImage(), width: 84, height: 84, fit: BoxFit.cover),
+        errorBuilder: (_, __, ___) =>
+            Image.asset(_defaultImage(), width: 84, height: 84, fit: BoxFit.cover),
       );
     }
     return Image.asset(_defaultImage(), width: 84, height: 84, fit: BoxFit.cover);
@@ -531,4 +534,110 @@ class _PlaceTile extends StatelessWidget {
         return 'assets/image/tour.png';
     }
   }
+}
+
+/// ===================================================================
+/// ✅ “두 곳 이상 선택해 주세요” 전용 팝업 (다른 디자인, 중상단)
+/// - 라이트 옐로우 카드 + 앰버 경고 아이콘
+/// - 이 파일 안에 포함 (새 파일 X)
+/// ===================================================================
+void showMinPickPopup(
+    BuildContext context, {
+      required String message,
+      Duration duration = const Duration(milliseconds: 2200),
+    }) {
+  final overlay = Overlay.of(context);
+  if (overlay == null) return;
+
+  const cardBg = Color(0xFFFFF8E1);   // 라이트 옐로우
+  const border = Color(0xFFFFE082);   // 연노랑 보더
+  const iconC  = Color(0xFFFFB300);   // 앰버 경고
+  const shadow = Colors.black26;
+
+  late OverlayEntry entry;
+  bool closed = false;
+
+  void safeRemove() {
+    if (!closed && entry.mounted) {
+      closed = true;
+      entry.remove();
+    }
+  }
+
+  entry = OverlayEntry(
+    builder: (_) => SafeArea(
+      child: Stack(
+        children: [
+          // 바깥 터치 시 닫기
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: safeRemove,
+            ),
+          ),
+          // 중상단 배너
+          Positioned.fill(
+            child: Align(
+              alignment: const Alignment(0, -0.28),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                builder: (_, t, child) => Opacity(
+                  opacity: t,
+                  child: Transform.translate(
+                    offset: Offset(0, (1 - t) * 10),
+                    child: child,
+                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    width: MediaQuery.of(context).size.width * 0.9,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: border, width: 1.2),
+                      boxShadow: const [
+                        BoxShadow(color: shadow, blurRadius: 14, offset: Offset(0, 6)),
+                      ],
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: iconC, size: 24),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            message,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              height: 1.35,
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: safeRemove,
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(Icons.close, size: 18, color: Colors.black54),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  overlay.insert(entry);
+  Future.delayed(duration, safeRemove);
 }

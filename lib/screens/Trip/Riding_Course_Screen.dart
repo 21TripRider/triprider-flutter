@@ -9,11 +9,13 @@ import 'package:triprider/screens/Trip/widgets/P_Course_Card.dart';
 import 'package:triprider/widgets/Bottom_App_Bar.dart';
 
 // API 클라이언트
-import 'package:triprider/screens/RiderGram/Api_client.dart';
+import 'package:triprider/core/network/Api_client.dart';
 
 // ✅ 공통 유틸(중복 제거)
 import 'package:triprider/screens/Trip/shared/course_cover_resolver.dart';
 import 'package:triprider/screens/Trip/shared/open_course_detail.dart';
+
+// ... (상단 import 동일)
 
 class RidingCourse extends StatefulWidget {
   const RidingCourse({super.key});
@@ -36,39 +38,40 @@ class _Riding_CourseState extends State<RidingCourse> {
           style: TextStyle(fontSize: 25, fontWeight: FontWeight.w600),
         ),
       ),
-      body: ListView(
-        children: [
-          Column(
-            children: [
-              Select_Section(
-                selectedIndex: selectedIndex,
-                onSelect: (index) => setState(() => selectedIndex = index),
-              ),
-              const SizedBox(height: 30),
+      // 🔧 ListView -> SingleChildScrollView + Column
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Select_Section(
+              selectedIndex: selectedIndex,
+              onSelect: (index) => setState(() => selectedIndex = index),
+            ),
+            const SizedBox(height: 30),
 
-              if (selectedIndex == 0) ...[
-                const Padding(
-                  padding: EdgeInsets.only(right: 300, bottom: 30, top: 20),
-                  child: Text(
-                    '인기코스',
-                    style: TextStyle(fontSize: 25, fontWeight: FontWeight.w700),
-                  ),
+            if (selectedIndex == 0) ...[
+              const Padding(
+                padding: EdgeInsets.only(right: 300, bottom: 30, top: 20),
+                child: Text(
+                  '인기코스',
+                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.w700),
                 ),
-                Center(child: Popular_Course(favorite_Pressed: () {})),
-                const SizedBox(height: 8),
-                const _DistanceSection(),
-                const SizedBox(height: 24),
-              ] else ...[
-                const CustomRidingCourse(),
-              ],
+              ),
+              Center(child: Popular_Course(favorite_Pressed: () {})),
+              const SizedBox(height: 8),
+              const _DistanceSection(),
+              const SizedBox(height: 24),
+            ] else ...[
+              // ✅ 섹션 모드로 삽입 (내부에 자체 스크롤 없음)
+              const CustomRidingCourse(asPage: false),
             ],
-          ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: const BottomAppBarWidget(),
     );
   }
 }
+
 
 /// 탭 선택 영역
 class Select_Section extends StatelessWidget {

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:triprider/screens/RiderGram/Api_client.dart';
+import 'package:triprider/core/network/Api_client.dart';
 import 'package:triprider/screens/RiderGram/Comment_Model.dart';
 
 class CommentApi {

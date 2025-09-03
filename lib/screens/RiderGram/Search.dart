@@ -3,7 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
-import 'package:triprider/screens/RiderGram/Api_client.dart';
+import 'package:triprider/core/network/Api_client.dart';
 import 'package:triprider/screens/RiderGram/Post.dart';
 import 'package:triprider/screens/RiderGram/Post_Detail.dart';
 

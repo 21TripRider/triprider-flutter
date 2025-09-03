@@ -1,11 +1,19 @@
+// lib/screens/home/HomeScreen.dart
+import 'dart:convert';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:triprider/screens/home/Rentshoplist_Screen.dart';
-import 'package:triprider/screens/trip/Riding_Course_Screen.dart';
+import 'package:triprider/screens/trip/Riding_Course_Screen.dart'; // (쓰면 유지, 안 쓰면 삭제해도 무방)
 import 'package:triprider/widgets/Bottom_App_Bar.dart';
 
 import 'package:triprider/screens/Home/Weather/WeatherApi.dart';
 import 'package:triprider/screens/Home/Weather/WeatherResponse.dart';
+
+// 상세 화면 이동용
+import 'package:triprider/screens/MyPage/Ride_Record_Detail.dart';
 
 class Homescreen extends StatefulWidget {
   const Homescreen({super.key});
@@ -19,25 +27,15 @@ class _HomescreenState extends State<Homescreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: ListView(
-        children: [
-          const _Weather(),
-          const SizedBox(height: 15),
-          _Rent(onPressed: Rent_Pressed),
-          const SizedBox(height: 15),
-          const _Record(),
+        children: const [
+          _Weather(),
+          SizedBox(height: 15),
+          _RentSection(),
+          SizedBox(height: 15),
+          _Record(), // ← 실데이터로 채워진 최근 주행 기록 카드
         ],
       ),
       bottomNavigationBar: const BottomAppBarWidget(),
-    );
-  }
-
-  Rent_Pressed() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (BuildContext context) {
-          return RentshopList();
-        },
-      ),
     );
   }
 }
@@ -179,8 +177,6 @@ class _WeatherState extends State<_Weather> {
   }
 
   /// 아이콘 빌더: 번개 > 강수(비/눈) > 하늘상태(맑음/부분운/흐림)
-  /// - 낮: 해, 해+구름, 구름
-  /// - 밤: 달, 달+구름, 구름
   Widget _buildWeatherIcon({
     required int? skyCode,
     required int? rainCode,
@@ -224,7 +220,7 @@ class _WeatherState extends State<_Weather> {
       return Icon(isNight ? moon : sun, color: color, size: size);
     }
 
-    // (b) 부분운(해/달 + 구름) — 두 아이콘을 겹쳐서 표현
+    // (b) 부분운(해/달 + 구름)
     if (sky == 3) {
       return SizedBox(
         width: size,
@@ -299,93 +295,241 @@ class _WeatherState extends State<_Weather> {
 }
 
 /// ─────────────────────────────────────────────────────────
-/// 렌트 위젯
+/// 렌트 배너/버튼 (디자인 그대로 유지)
 /// ─────────────────────────────────────────────────────────
-class _Rent extends StatelessWidget {
-  final VoidCallback onPressed;
-  const _Rent({super.key, required this.onPressed});
+class _RentSection extends StatelessWidget {
+  const _RentSection({super.key});
+
+  void _openRent(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => RentshopList()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(onPressed: onPressed, icon: Image.asset('assets/image/RentCar.png'));
+    return IconButton(
+      onPressed: () => _openRent(context),
+      icon: Image.asset('assets/image/RentCar.png'),
+    );
   }
 }
 
 /// ─────────────────────────────────────────────────────────
-/// 최근 주행 기록 위젯
+/// 최근 주행 기록 위젯 (실데이터 버전)
 /// ─────────────────────────────────────────────────────────
-class _Record extends StatelessWidget {
+class _Record extends StatefulWidget {
   const _Record({super.key});
 
   @override
+  State<_Record> createState() => _RecordState();
+}
+
+class _RecordState extends State<_Record> {
+  bool _loading = true;
+  Map<String, dynamic>? _latest;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLatest();
+  }
+
+  Future<void> _loadLatest() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList('ride_records') ?? const <String>[];
+    if (list.isEmpty) {
+      setState(() {
+        _loading = false;
+        _latest = null;
+      });
+      return;
+    }
+
+    final parsed = <Map<String, dynamic>>[];
+    for (final s in list) {
+      try {
+        parsed.add(jsonDecode(s) as Map<String, dynamic>);
+      } catch (_) {}
+    }
+
+    // 최신 종료 시각 순으로 정렬
+    parsed.sort((a, b) {
+      final ad = DateTime.tryParse(a['endedAt'] ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final bd = DateTime.tryParse(b['endedAt'] ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      return bd.compareTo(ad);
+    });
+
+    setState(() {
+      _latest = parsed.isNotEmpty ? parsed.first : null;
+      _loading = false;
+    });
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
+
+  String _formatHms(int seconds) {
+    final hh = (seconds ~/ 3600).toString().padLeft(2, '0');
+    final mm = ((seconds % 3600) ~/ 60).toString().padLeft(2, '0');
+    final ss = (seconds % 60).toString().padLeft(2, '0');
+    return '$hh:$mm:$ss';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 10),
+        child: SizedBox(
+          height: 160,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    // 데이터 없음
+    if (_latest == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            children: const [
+              _HeaderRowRightStat(label: '최근 주행 기록', value: '-- KM'),
+              SizedBox(height: 12),
+              Text('저장된 주행 기록이 없습니다.',
+                  style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 데이터 표시
+    final r = _latest!;
+    final startedAt = DateTime.tryParse(r['startedAt'] ?? '') ?? DateTime.now();
+    final distanceKm =
+        ((r['distanceMeters'] as num?)?.toDouble() ?? 0.0) / 1000.0;
+    final avg = (r['avgSpeedKmh'] as num?)?.toDouble() ?? 0.0;
+    final max = (r['maxSpeedKmh'] as num?)?.toDouble() ?? 0.0;
+    final secs = (r['elapsedSeconds'] as num?)?.toInt() ?? 0;
+    final route = (r['routeName'] ?? r['location'] ?? '') as String;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: Container(
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text('최근 주행 기록', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-                _KmStat(),
-              ],
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => RideRecordDetail(record: r)),
+            );
+          },
+          child: Ink(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
             ),
-            Row(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
               children: [
-                Container(
-                  width: 90,
-                  height: 30,
-                  decoration: BoxDecoration(color: const Color(0XFFFFF4F6), borderRadius: BorderRadius.circular(50)),
-                  child: const Center(child: Text('2025.07.23', style: TextStyle(color: Color(0XFFFF4E6B)))),
+                // 상단: 타이틀 + 거리 합계
+                _HeaderRowRightStat(
+                  label: '최근 주행 기록',
+                  value: '${distanceKm.round()}KM',
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  width: 140,
-                  height: 30,
-                  decoration: BoxDecoration(color: const Color(0XFFFFF4F6), borderRadius: BorderRadius.circular(50)),
-                  child: const Center(child: Text('제주도 제주시 한강면', style: TextStyle(color: Color(0XFFFF4E6B)))),
+                const SizedBox(height: 8),
+
+                // 날짜/위치 태그
+                Row(
+                  children: [
+                    _Chip(text: _formatDate(startedAt)),
+                    const SizedBox(width: 8),
+                    if (route.isNotEmpty) _Chip(text: route),
+                  ],
+                ),
+
+                const SizedBox(height: 15),
+                const Divider(color: Colors.grey),
+                const SizedBox(height: 15),
+
+                // 하단: 통계
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _SmallStat(title: '평균 속도', value: '${avg.round()}KM'),
+                    _SmallStat(title: '최고 속도', value: '${max.round()} KM'),
+                    _SmallStat(title: '주행 시간', value: _formatHms(secs)),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 15),
-            const Divider(color: Colors.grey),
-            const SizedBox(height: 15),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: const [
-                _SmallStat(title: '평균 속도', value: '53KM'),
-                _SmallStat(title: '최고 속도', value: '82 KM'),
-                _SmallStat(title: '주행 시간', value: '01:04:32'),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _KmStat extends StatelessWidget {
-  const _KmStat({super.key});
+/// 타이틀-우측 수치
+class _HeaderRowRightStat extends StatelessWidget {
+  final String label;
+  final String value;
+  const _HeaderRowRightStat({super.key, required this.label, required this.value});
+
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: const [
-        Text('57', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
-        Text('KM', style: TextStyle(color: Colors.grey, fontSize: 20, fontWeight: FontWeight.w600)),
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+        Row(
+          children: [
+            Text(value.replaceAll('KM', ''), // 숫자만 볼드
+                style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
+            const SizedBox(width: 2),
+            const Text('KM', style: TextStyle(color: Colors.grey, fontSize: 20, fontWeight: FontWeight.w600)),
+          ],
+        ),
       ],
     );
   }
 }
 
+/// 라운드 칩
+class _Chip extends StatelessWidget {
+  final String text;
+  const _Chip({super.key, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 30),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0XFFFFF4F6),
+        borderRadius: BorderRadius.circular(50),
+      ),
+      child: Text(text, style: const TextStyle(color: Color(0XFFFF4E6B))),
+    );
+  }
+}
+
+/// 작은 통계 셀
 class _SmallStat extends StatelessWidget {
   final String title;
   final String value;
   const _SmallStat({super.key, required this.title, required this.value});
+
   @override
   Widget build(BuildContext context) {
     return Column(

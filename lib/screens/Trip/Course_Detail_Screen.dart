@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:triprider/screens/RiderGram/Api_client.dart';            // ← 저장 API 호출
+import 'package:triprider/core/network/Api_client.dart'; // 저장 API 호출
 import 'package:triprider/screens/Trip/Riding_Course_Screen.dart';
 import 'package:triprider/screens/trip/models.dart';
 
@@ -43,13 +43,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
     setState(() => _saving = true);
 
     try {
-      // 선택적으로 사용자 ID 헤더 붙이기
       final prefs = await SharedPreferences.getInstance();
       final uid = prefs.getInt('userId') ?? prefs.getInt('id');
 
-      // 서버에 저장
-      // 백엔드에서 사용하는 스키마에 맞춰 body 구성하세요.
-      // 여기서는 waypoints 배열을 그대로 전달합니다.
       final body = {
         'title': '나의 여행 코스',
         'distanceKm': widget.preview!.distanceKm,
@@ -58,27 +54,34 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
       };
 
       await ApiClient.post(
-        '/api/custom/courses',           // ← 서버 저장 엔드포인트
-        headers: { if (uid != null) 'X-USER-ID': '$uid' },
+        '/api/custom/courses',
+        headers: {if (uid != null) 'X-USER-ID': '$uid'},
         body: body,
       );
 
       if (!mounted) return;
 
-      // 저장 완료 토스트
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('저장 완료')));
+      // ✅ 중상단 오토바이 팝업
+      showMotoPopup(
+        context,
+        title: '저장 완료',
+        message: '나의 여행 코스가 저장되었습니다.',
+      );
 
-      // 스택 정리 후 목록이 자동 로드되는 화면(Scaffold)로 이동
-      // (해당 화면에서 MyCourseCardList가 initState 때 목록을 불러옵니다)
+      // 팝업 잠깐 보여주고 이동
+      await Future.delayed(const Duration(milliseconds: 350));
+      if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const RidingCourse()),
-            (route) => route.isFirst, // 첫 화면만 남기고 밀어냄
+            (route) => route.isFirst,
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('저장 실패: $e')),
+      showMotoPopup(
+        context,
+        title: '저장 실패',
+        message: '$e',
+        isError: true,
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -87,10 +90,12 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = _isPreview ? '코스 미리보기' : (widget.view?.title ?? '여행 코스');
+    final title =
+    _isPreview ? '코스 미리보기' : (widget.view?.title ?? '여행 코스');
     final km = (_isPreview ? widget.preview!.distanceKm : widget.view!.distanceKm)
         .toStringAsFixed(1);
-    final min = _isPreview ? widget.preview!.durationMin : widget.view!.durationMin;
+    final min =
+    _isPreview ? widget.preview!.durationMin : widget.view!.durationMin;
 
     final center = _wps.isEmpty
         ? const LatLng(33.3846, 126.5535)
@@ -111,21 +116,24 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
               padding: const EdgeInsets.only(right: 12),
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pinkAccent,
+                  backgroundColor: const Color(0xFFFF4E6B),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 ),
                 onPressed: _saving ? null : _saveAndGo,
                 child: _saving
                     ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
                 )
-                    : const Text('저장', style: TextStyle(fontWeight: FontWeight.bold)),
+                    : const Text('저장',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
         ],
@@ -162,7 +170,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
           // 스텝 리스트
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: _wps.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (_, i) => _StepTile(i: i + 1, w: _wps[i]),
@@ -213,7 +222,8 @@ class _StepTile extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
-          BoxShadow(color: Color(0x14000000), blurRadius: 6, offset: Offset(0, 3)),
+          BoxShadow(
+              color: Color(0x14000000), blurRadius: 6, offset: Offset(0, 3)),
         ],
       ),
       child: Row(
@@ -246,9 +256,112 @@ class _StepTile extends StatelessWidget {
       ),
     );
   }
-<<<<<<< HEAD
-}
-=======
 }
 
->>>>>>> b47424897f2432cc10fcdc5d699aec9190a8c11b
+
+/// =================== 오토바이 컨셉 중상단 팝업  ===================
+/// - 카드: 흰색 + 투명도 0.7, 라운드, 그림자, 얇은 테두리
+/// - 제목/본문 구분선(회색 Divider)
+/// - 아이콘: 저장 아이콘 (save_rounded)
+void showMotoPopup(
+    BuildContext context, {
+      required String title,
+      required String message,
+      bool isError = false,
+      Duration duration = const Duration(milliseconds: 2400),
+    }) {
+  // 2) 루트 오버레이 사용 → 키보드/다이얼로그 위에도 뜸
+  final overlay = Overlay.of(context, rootOverlay: true);
+  if (overlay == null) return;
+
+  late OverlayEntry entry;
+  bool closed = false;
+  void safeRemove() {
+    if (!closed && entry.mounted) { closed = true; entry.remove(); }
+  }
+
+  entry = OverlayEntry(
+    builder: (ctx) {
+      // 3) 노치/상태바 고려: viewPadding.top 사용
+      final topInset = MediaQuery.of(ctx).viewPadding.top;
+
+      return Stack(
+        children: [
+          // (옵션) 빈 곳 탭하면 닫기
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: safeRemove,
+            ),
+          ),
+
+          // 1) 상단 고정
+          Positioned(
+            top: topInset + 8,
+            left: 16,
+            right: 16,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              builder: (_, t, child) => Opacity(
+                opacity: t,
+                child: Transform.translate(
+                  offset: Offset(0, (1 - t) * -8),
+                  child: child,
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.85),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 16, offset: Offset(0, 6)),
+                    ],
+                    border: Border.all(color: const Color(0xFFE9E9EE)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          // 저장 아이콘 등 원하는 아이콘으로
+                          Icon(Icons.save_rounded, color: Colors.pink),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.black.withOpacity(0.9),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+                      const SizedBox(height: 10),
+                      Text(
+                        message,
+                        style: const TextStyle(fontSize: 14.5, height: 1.35, color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  overlay.insert(entry);
+  Future.delayed(duration, safeRemove);
+}

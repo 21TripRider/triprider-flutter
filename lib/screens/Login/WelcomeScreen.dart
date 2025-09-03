@@ -22,7 +22,7 @@ class _WelcomescreenState extends State<Welcomescreen> {
           children: [
             TripRider_logo(),
 
-            SizedBox(height: 150),
+            SizedBox(height: 100),
 
             Login_Button(onPressed: Login_Pressed),
 
@@ -64,9 +64,9 @@ class TripRider_logo extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(child: Image.asset('assets/image/logo.png')),
+        Container(child: Image.asset('assets/image/logo.png'),width: 250,height: 250,),
 
-        SizedBox(height: 30),
+        SizedBox(height: 70),
 
         Container(
           child: Column(

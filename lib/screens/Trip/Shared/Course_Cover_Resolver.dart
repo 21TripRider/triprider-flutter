@@ -1,5 +1,5 @@
 // 공통 커버(URL) 해석 & 사전탐색 유틸
-import 'package:triprider/screens/RiderGram/Api_client.dart';
+import 'package:triprider/core/network/Api_client.dart';
 import 'package:http/http.dart' as http;
 
 class CourseCoverResolver {

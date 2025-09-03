@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
-import 'package:triprider/screens/RiderGram/Api_client.dart';
+import 'package:triprider/core/network/Api_client.dart';
 import 'package:triprider/screens/RiderGram/Comment_Sheet.dart';
 import 'package:triprider/screens/RiderGram/Post.dart';
 import 'package:triprider/screens/RiderGram/Public_Profile_Screen.dart';

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
-import 'package:triprider/screens/RiderGram/Api_client.dart';
+import 'package:triprider/core/network/Api_client.dart';
 import 'package:triprider/screens/RiderGram/Post_Detail.dart';
 
 /// 상대방 공개 프로필 + 게시물 그리드 (이미지/텍스트 모두 표시)

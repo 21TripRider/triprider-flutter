@@ -1,7 +1,7 @@
 // lib/screens/trip/custom_choice_screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:triprider/screens/RiderGram/Api_client.dart';
+import 'package:triprider/core/network/Api_client.dart';
 import 'package:triprider/screens/trip/place_pick_screen.dart';
 import 'package:triprider/screens/trip/models.dart';
 
@@ -201,6 +201,7 @@ class _CustomChoiceScreenState extends State<CustomChoiceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
+
       body: Stack(
         children: [
           // 상단 전체를 덮는 배경 (SafeArea 위까지)
@@ -222,16 +223,28 @@ class _CustomChoiceScreenState extends State<CustomChoiceScreen> {
                   SliverToBoxAdapter(
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
+                      padding: const EdgeInsets.fromLTRB(0, 18, 20, 22),
                       color: _headerPink,
-                      child: const Text(
-                        '원하는 카테고리를 선택하여\n맞춤형 여행 코스를 생성해보세요',
-                        style: TextStyle(
-                          fontSize: 22,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          height: 1.25,
-                        ),
+                      child: Row(
+
+
+                        children: [
+
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.arrow_back_ios_new),
+                          ),
+
+                          const Text(
+                            '원하는 카테고리를 선택하여\n맞춤형 여행 코스를 생성해보세요',
+                            style: TextStyle(
+                              fontSize: 22,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              height: 1.25,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

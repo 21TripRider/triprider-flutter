@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 // API
-import 'package:triprider/screens/RiderGram/Api_client.dart';
+import 'package:triprider/core/network/Api_client.dart';
 
 // ⬇️ 이거 하나만 유지(웹뷰 헬퍼)
 import 'package:triprider/screens/Trip/shared/open_course_detail.dart';
