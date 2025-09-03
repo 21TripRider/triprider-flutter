@@ -31,7 +31,7 @@ class MapViewModel {
         final labels = <Map<String, dynamic>>[];
         int id = 200000;
         for (final p in pois) {
-          labels.add({'name': '•', 'lat': p.lat, 'lon': p.lon, 'id': id++});
+          labels.add({'name': '⛽ ${p.name}', 'lat': p.lat, 'lon': p.lon, 'id': id++});
         }
         await controller.setLabels(labels);
       } else if (activeFilter == 'moto') {
@@ -47,7 +47,12 @@ class MapViewModel {
           }
         }
         pois = out;
-        await controller.clearLabels();
+        final labels = <Map<String, dynamic>>[];
+        int id = 230000;
+        for (final p in pois) {
+          labels.add({'name': '🏍️ ${p.name}', 'lat': p.lat, 'lon': p.lon, 'id': id++});
+        }
+        await controller.setLabels(labels);
       }
     } finally {
       loading = false;
@@ -65,3 +70,4 @@ class MapViewModel {
 }
 
 
+  
