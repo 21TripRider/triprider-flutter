@@ -514,7 +514,9 @@ class OrderHeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDesc = current == 'desc';
+    final bool isDesc = current == 'desc';           // 긴 코스(내림차순) -> 먼저
+    final String label = isDesc ? '긴 코스' : '짧은 코스';
+
     return Align(
       alignment: Alignment.centerRight,
       child: OutlinedButton.icon(
@@ -523,14 +525,8 @@ class OrderHeaderRow extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
         onPressed: () => onChanged(isDesc ? 'asc' : 'desc'),
-        icon: Icon(
-          isDesc ? Icons.arrow_downward : Icons.arrow_upward,
-          size: 18,
-        ),
-        label: const Text(
-          "거리순",
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
+        icon: Icon(isDesc ? Icons.route : Icons.route, size: 18,color: Colors.black,),
+        label: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600,color: Colors.black)),
       ),
     );
   }
