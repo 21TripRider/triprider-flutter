@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:triprider/screens/Map/API/Ride_Api.dart';
-import 'package:triprider/core/network/api_client.dart';
+import 'package:triprider/core/network/Api_client.dart';
 
 class RecordScreen extends StatefulWidget {
   const RecordScreen({super.key});
