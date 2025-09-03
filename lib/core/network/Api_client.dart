@@ -148,6 +148,37 @@ class ApiClient {
     return absoluteUrl(path);
   }
 
+  /// 임의의 엔드포인트로 멀티파트 요청을 보냄. 파일/필드 모두 지원
+  static Future<http.Response> multipart(
+      String path, {
+        Map<String, String>? fields,
+        Map<String, File>? files,
+        String method = 'POST',
+      }) async {
+    final uri = _u(path);
+    final req = http.MultipartRequest(method, uri);
+
+    // Auth 헤더
+    final token = await _getToken();
+    if (token != null && token.isNotEmpty) {
+      req.headers['Authorization'] = 'Bearer $token';
+    }
+
+    if (fields != null && fields.isNotEmpty) {
+      req.fields.addAll(fields);
+    }
+    if (files != null && files.isNotEmpty) {
+      for (final entry in files.entries) {
+        req.files.add(await http.MultipartFile.fromPath(entry.key, entry.value.path));
+      }
+    }
+
+    final streamed = await req.send().timeout(_timeout);
+    final res = await http.Response.fromStream(streamed);
+    _throwIfError(res);
+    return res;
+  }
+
   // --- 공통 에러 처리 --------------------------------------------------------
   static void _throwIfError(http.Response res) {
     if (res.statusCode >= 400) {
