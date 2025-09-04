@@ -73,7 +73,7 @@ class _NicknameInputScreenState extends State<NicknameInputScreen> {
             (route) => false,
       );
     } else {
-      _showPopup('회원가입 실패', '회원가입에 실패했습니다. 잠시 후 다시 시도해주세요.', type: PopupType.error);
+      _showPopup('닉네임 중복', '이미 사용중인 닉네임입니다.', type: PopupType.error);
     }
   }
 

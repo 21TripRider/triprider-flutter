@@ -1,8 +1,10 @@
+// lib/screens/MyPage/Record_Screen.dart
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:triprider/screens/Map/API/Ride_Api.dart';
 import 'package:triprider/core/network/Api_client.dart';
 
@@ -17,77 +19,146 @@ class _RecordScreenState extends State<RecordScreen> {
   List<Map<String, dynamic>> _records = [];
   double _totalKm = 0.0;
   int _totalSeconds = 0;
+  bool _usedServerSummary = false;
 
   @override
   void initState() {
     super.initState();
-    _loadRecords();
-    _loadSummaryFromServer();
+    _refreshRecords();
   }
 
-  Future<void> _loadRecords() async {
+  Future<void> _refreshRecords() async {
     final prefs = await SharedPreferences.getInstance();
-    final list = prefs.getStringList('ride_records') ?? <String>[];
-    final parsed = <Map<String, dynamic>>[];
-    for (final s in list) {
+    final key = await ApiClient.userScopedKey('ride_records');
+    final local = (prefs.getStringList(key) ?? <String>[])
+        .map((s) {
       try {
-        final m = jsonDecode(s) as Map<String, dynamic>;
-        parsed.add(m);
-      } catch (_) {}
+        return jsonDecode(s) as Map<String, dynamic>;
+      } catch (_) {
+        return null;
+      }
+    })
+        .whereType<Map<String, dynamic>>()
+        .toList();
+
+    List<Map<String, dynamic>> finalList = local;
+    bool remoteOk = false;
+    List<Map<String, dynamic>> remoteMapped = const [];
+
+    try {
+      final serverList = await RideApi.listRides();
+      remoteOk = true;
+
+      if (serverList.isEmpty) {
+        await prefs.remove(key);
+        finalList = [];
+      } else {
+        remoteMapped = serverList
+            .map<Map<String, dynamic>>((r) => {
+          'id': r['id'],
+          'startedAt': r['startedAt'],
+          'endedAt': r['finishedAt'],
+          'elapsedSeconds':
+          r['movingSeconds'] ?? r['elapsedSeconds'],
+          'distanceMeters':
+          ((r['totalKm'] as num?)?.toDouble() ?? 0.0) * 1000.0,
+          'avgSpeedKmh':
+          (r['avgSpeedKmh'] as num?)?.toDouble() ?? 0.0,
+          'maxSpeedKmh':
+          (r['maxSpeedKmh'] as num?)?.toDouble() ?? 0.0,
+          // ✅ /uploads 상대경로를 절대 URL로
+          'imagePath': ApiClient.absoluteUrl(r['routeImageUrl'] ?? ''),
+          'title': r['title'],
+          'path': null, // 서버 기본 응답엔 path 없음
+        })
+            .toList();
+
+        finalList = _mergeRecords(local, remoteMapped);
+      }
+    } catch (_) {
+      finalList = local;
     }
-    // 최신 순 정렬 (endedAt 기준)
-    parsed.sort((a, b) {
-      final ad = DateTime.tryParse(a['endedAt'] ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bd = DateTime.tryParse(b['endedAt'] ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+    finalList.sort((a, b) {
+      final ad = DateTime.tryParse(a['endedAt'] ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final bd = DateTime.tryParse(b['endedAt'] ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
       return bd.compareTo(ad);
     });
 
     double km = 0.0;
     int secs = 0;
-    for (final r in parsed) {
+    for (final r in finalList) {
       km += ((r['distanceMeters'] as num?)?.toDouble() ?? 0.0) / 1000.0;
       secs += (r['elapsedSeconds'] as num?)?.toInt() ?? 0;
     }
 
+    if (!mounted) return;
     setState(() {
-      _records = parsed;
+      _records = finalList;
       _totalKm = km;
       _totalSeconds = secs;
+      _usedServerSummary = false;
     });
+
+    if (remoteOk && _records.isNotEmpty) {
+      try {
+        final s = await RideApi.getSummary();
+        final srvKm = ((s['totalKm'] as num?)?.toDouble() ?? 0.0);
+        final srvSec = (s['totalSeconds'] as num?)?.toInt() ?? 0;
+        if (!mounted) return;
+        if (srvKm > 0 || srvSec > 0) {
+          setState(() {
+            _totalKm = srvKm;
+            _totalSeconds = srvSec;
+            _usedServerSummary = true;
+          });
+        }
+      } catch (_) {}
+    }
   }
 
-  Future<void> _loadSummaryFromServer() async {
-    try {
-      final s = await RideApi.getSummary();
-      final totalKm = ((s['totalKm'] as num?)?.toDouble() ?? 0.0);
-      final totalSeconds = (s['totalSeconds'] as num?)?.toInt() ?? 0;
-      setState(() {
-        _totalKm = totalKm; // 서버 권위값으로 덮어씀
-        _totalSeconds = totalSeconds;
-      });
-    } catch (_) {}
-    try {
-      final list = await RideApi.listRides();
-      // 서버 목록의 스냅샷/경로를 로컬 표시 포맷으로 매핑 (간단히 날짜/거리/시간만 반영)
-      final mapped = <Map<String, dynamic>>[];
-      for (final r in list) {
-        mapped.add({
-          'startedAt': r['startedAt'],
-          'endedAt': r['finishedAt'],
-          'elapsedSeconds': r['movingSeconds'] ?? r['elapsedSeconds'],
-          'distanceMeters': ((r['totalKm'] as num?)?.toDouble() ?? 0.0) * 1000.0,
-          'avgSpeedKmh': r['avgSpeedKmh'],
-          'maxSpeedKmh': r['maxSpeedKmh'],
-          'imagePath': ApiClient.absoluteUrl(r['routeImageUrl'] ?? ''),
-          'path': null,
-        });
+  List<Map<String, dynamic>> _mergeRecords(
+      List<Map<String, dynamic>> local,
+      List<Map<String, dynamic>> remote,
+      ) {
+    String keyOf(Map<String, dynamic> m) {
+      final id = m['id']?.toString();
+      if (id != null && id.isNotEmpty) return 'id:$id';
+      final ended = DateTime.tryParse(m['endedAt'] ?? '');
+      final bucket = ended == null
+          ? 'ts:0'
+          : 'ts:${ended.millisecondsSinceEpoch ~/ 60000}';
+      return bucket;
+    }
+
+    final byKey = <String, Map<String, dynamic>>{};
+
+    for (final r in remote) {
+      byKey[keyOf(r)] = Map<String, dynamic>.from(r);
+    }
+
+    bool _isBlankStr(dynamic v) =>
+        v == null || (v is String && v.trim().isEmpty);
+
+    for (final l in local) {
+      final k = keyOf(l);
+      if (!byKey.containsKey(k)) {
+        byKey[k] = Map<String, dynamic>.from(l);
+        continue;
       }
-      if (mapped.isNotEmpty) {
-        setState(() {
-          _records = mapped;
-        });
+      final m = byKey[k]!;
+      if (_isBlankStr(m['imagePath']) && !_isBlankStr(l['imagePath'])) {
+        m['imagePath'] = l['imagePath'];
       }
-    } catch (_) {}
+      final hasPath =
+          (m['path'] is List) && ((m['path'] as List).isNotEmpty);
+      if (!hasPath && (l['path'] is List) && (l['path'] as List).isNotEmpty) {
+        m['path'] = l['path'];
+      }
+    }
+    return byKey.values.toList();
   }
 
   @override
@@ -99,80 +170,88 @@ class _RecordScreenState extends State<RecordScreen> {
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: Icon(Icons.arrow_back_ios_new, size: 28),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 28),
         ),
         centerTitle: true,
-        title: Text('주행 기록', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('주행 기록',
+            style: TextStyle(fontWeight: FontWeight.bold)),
       ),
-      body: ListView(
-        padding: EdgeInsets.all(25),
-        children: [
-          // 누적 주행 정보
-          Container(
-            height: 170,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '누적 주행거리',
-                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.w500),
-                ),
-                Text(
-                  '${_totalKm.toStringAsFixed(1)} km',
-                  style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    _buildStatColumn('라이딩', '$rides 회'),
-                    SizedBox(width: 30),
-                    _buildStatColumn('시간', totalTime),
-                    SizedBox(width: 30),
-                    _buildStatColumn('평균속도', _overallAvgSpeedKmH()),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 30),
-
-          if (_records.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 60),
-                child: Text('아직 저장된 주행 기록이 없습니다.', style: TextStyle(color: Colors.grey)),
+      body: RefreshIndicator(
+        onRefresh: _refreshRecords,
+        child: ListView(
+          padding: const EdgeInsets.all(25),
+          children: [
+            SizedBox(
+              height: 170,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('누적 주행거리',
+                      style:
+                      TextStyle(fontSize: 25, fontWeight: FontWeight.w500)),
+                  Text('${_totalKm.toStringAsFixed(1)} km',
+                      style: const TextStyle(
+                          fontSize: 40, fontWeight: FontWeight.bold)),
+                  Row(
+                    children: [
+                      _buildStatColumn('라이딩', '$rides 회'),
+                      const SizedBox(width: 30),
+                      _buildStatColumn('시간', totalTime),
+                      const SizedBox(width: 30),
+                      _buildStatColumn('평균속도', _overallAvgSpeedKmH()),
+                    ],
+                  ),
+                ],
               ),
-            )
-          else
-            ..._records.map((r) {
-              final startedAt = DateTime.tryParse(r['startedAt'] ?? '') ?? DateTime.now();
-              final date = '${startedAt.year}.${startedAt.month.toString().padLeft(2, '0')}.${startedAt.day.toString().padLeft(2, '0')}';
-              final distKm = ((r['distanceMeters'] as num?)?.toDouble() ?? 0.0) / 1000.0;
-              final avg = (r['avgSpeedKmh'] as num?)?.toDouble() ?? 0.0;
-              final max = (r['maxSpeedKmh'] as num?)?.toDouble() ?? 0.0;
-              final time = _formatHms((r['elapsedSeconds'] as num?)?.toInt() ?? 0);
-              final imagePath = r['imagePath'] as String?;
-              final routePath = (r['path'] as List?)?.cast<Map<String, dynamic>>();
-              return _buildRideCard(
-                date: date,
-                location: null,
-                distance: distKm.toStringAsFixed(1),
-                avgSpeed: avg.toStringAsFixed(1),
-                maxSpeed: max.toStringAsFixed(1),
-                time: time,
-                imagePath: imagePath,
-                routePath: routePath,
-                onTap: null,
-              );
-            }),
-        ],
+            ),
+            const SizedBox(height: 30),
+
+            if (_records.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 60),
+                  child: Text('아직 저장된 주행 기록이 없습니다.',
+                      style: TextStyle(color: Colors.grey.shade600)),
+                ),
+              )
+            else
+              ..._records.map((r) {
+                final startedAt =
+                    DateTime.tryParse(r['startedAt'] ?? '') ??
+                        DateTime.now();
+                final date =
+                    '${startedAt.year}.${startedAt.month.toString().padLeft(2, '0')}.${startedAt.day.toString().padLeft(2, '0')}';
+                final distKm =
+                    ((r['distanceMeters'] as num?)?.toDouble() ?? 0.0) /
+                        1000.0;
+                final avg = (r['avgSpeedKmh'] as num?)?.toDouble() ?? 0.0;
+                final max = (r['maxSpeedKmh'] as num?)?.toDouble() ?? 0.0;
+                final time =
+                _formatHms((r['elapsedSeconds'] as num?)?.toInt() ?? 0);
+                final imagePath = r['imagePath'] as String?;
+                final routePath =
+                (r['path'] as List?)?.cast<Map<String, dynamic>>();
+
+                return _buildRideCard(
+                  date: date,
+                  distance: distKm.toStringAsFixed(1),
+                  avgSpeed: avg.toStringAsFixed(1),
+                  maxSpeed: max.toStringAsFixed(1),
+                  time: time,
+                  imagePath: imagePath,
+                  routePath: routePath,
+                );
+              }),
+            if (_usedServerSummary) const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
 
   String _overallAvgSpeedKmH() {
-    if (_totalSeconds <= 0) return '-';
+    if (_totalSeconds <= 0 || _totalKm <= 0) return '-';
     final hours = _totalSeconds / 3600.0;
     final v = _totalKm / hours;
     if (v.isNaN || v.isInfinite) return '-';
@@ -183,44 +262,38 @@ class _RecordScreenState extends State<RecordScreen> {
     final hh = (seconds ~/ 3600).toString().padLeft(2, '0');
     final mm = ((seconds % 3600) ~/ 60).toString().padLeft(2, '0');
     final ss = (seconds % 60).toString().padLeft(2, '0');
-    return '$hh:$mm:$ss';
+    return '$hh:%02d:%02d'
+        .replaceFirst('%02d', mm)
+        .replaceFirst('%02d', ss);
   }
 
   Widget _buildStatColumn(String label, String value) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(color: Colors.grey, fontSize: 14)),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
         const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        Text(value,
+            style: const TextStyle(
+                color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold)),
       ],
     );
   }
 
   Widget _buildRideCard({
     required String date,
-    String? location,
     required String distance,
     required String avgSpeed,
     required String maxSpeed,
     required String time,
     String? imagePath,
     List<Map<String, dynamic>>? routePath,
-    VoidCallback? onTap,
   }) {
     return InkWell(
-      onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        margin: EdgeInsets.only(bottom: 20),
-        padding: EdgeInsets.all(20),
+        margin: const EdgeInsets.only(bottom: 20),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.grey.shade100,
           borderRadius: BorderRadius.circular(20),
@@ -228,67 +301,29 @@ class _RecordScreenState extends State<RecordScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_buildImageWidget(imagePath) != null)
-              AspectRatio(
-                aspectRatio: 4 / 3,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: _buildImageWidget(imagePath)!,
-                ),
-              )
-            else if (routePath != null && routePath.isNotEmpty)
-              AspectRatio(
-                aspectRatio: 4 / 3,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CustomPaint(
-                    painter: _RouteThumbPainter(routePath),
-                    child: Container(color: Colors.white),
-                  ),
-                ),
-              )
-            else
-              Container(
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.black12,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                alignment: Alignment.center,
-                child: Text('이미지 없음', style: TextStyle(color: Colors.grey.shade600)),
-              ),
+            _buildThumb(imagePath: imagePath, routePath: routePath),
             const SizedBox(height: 12),
-            // 날짜 & 거리
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(date, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text('$distance km', style: TextStyle(fontSize: 20, color: Colors.black54, fontWeight: FontWeight.w600)),
+                Text(date,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('$distance km',
+                    style: const TextStyle(
+                        fontSize: 20,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600)),
               ],
             ),
-            const SizedBox(height: 8),
-
-            // 위치 태그 (선택)
-            if (location != null && location.isNotEmpty)
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(location, style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w500)),
-              ),
-
             const SizedBox(height: 12),
-            Divider(),
+            const Divider(),
             const SizedBox(height: 12),
-
-            // 속도, 시간 정보
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildRideInfo('평균 속도', '$avgSpeed km'),
-                _buildRideInfo('최고 속도', '$maxSpeed km'),
+                _buildRideInfo('평균 속도', '$avgSpeed km/h'),
+                _buildRideInfo('최고 속도', '$maxSpeed km/h'),
                 _buildRideInfo('주행 시간', time),
               ],
             ),
@@ -298,32 +333,112 @@ class _RecordScreenState extends State<RecordScreen> {
     );
   }
 
-  Widget? _buildImageWidget(String? path) {
-    if (path == null) return null;
-    final s = path.trim();
-    if (s.isEmpty) return null;
-    final isHttp = s.startsWith('http://') || s.startsWith('https://');
-    if (isHttp) {
-      return Image.network(
-        s,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(color: Colors.black12),
+  /// 서버 상대경로도 네트워크로 처리 + 실패 시 폴리라인 폴백
+  Widget _buildThumb({
+    required String? imagePath,
+    required List<Map<String, dynamic>>? routePath,
+  }) {
+    final networkUrl = _resolveRemoteUrl(imagePath);
+    if (networkUrl != null) {
+      return AspectRatio(
+        aspectRatio: 4 / 3,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            networkUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) {
+              if (routePath != null && routePath.isNotEmpty) {
+                return CustomPaint(
+                  painter: _RouteThumbPainter(routePath),
+                  child: Container(color: Colors.white),
+                );
+              }
+              return Container(color: Colors.black12);
+            },
+          ),
+        ),
       );
     }
-    final f = File(s);
-    if (f.existsSync()) {
-      return Image.file(f, fit: BoxFit.cover);
+
+    final local = _resolveLocalFile(imagePath);
+    if (local != null && local.existsSync()) {
+      return AspectRatio(
+        aspectRatio: 4 / 3,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.file(local, fit: BoxFit.cover),
+        ),
+      );
+    }
+
+    if (routePath != null && routePath.isNotEmpty) {
+      return AspectRatio(
+        aspectRatio: 4 / 3,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: CustomPaint(
+            painter: _RouteThumbPainter(routePath),
+            child: Container(color: Colors.white),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 120,
+      decoration: BoxDecoration(
+        color: Colors.black12,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      alignment: Alignment.center,
+      child: Text('이미지 없음',
+          style: TextStyle(color: Colors.grey.shade600)),
+    );
+  }
+
+  /// 서버 URL 정규화
+  String? _resolveRemoteUrl(String? raw) {
+    if (raw == null) return null;
+    var s = raw.trim();
+    if (s.isEmpty) return null;
+
+    if (s.startsWith('/uploads/') || s.startsWith('uploads/')) {
+      s = ApiClient.absoluteUrl(s);
+    }
+
+    if (s.startsWith('http://') || s.startsWith('https://')) {
+      if (Platform.isAndroid &&
+          (s.contains('://localhost') ||
+              s.contains('://127.0.0.1') ||
+              s.contains('://0.0.0.0'))) {
+        s = s.replaceFirst(
+            RegExp(r'://(localhost|127\.0\.0\.1|0\.0\.0\.0)'),
+            '://10.0.2.2');
+      }
+      return s;
     }
     return null;
+  }
+
+  /// 로컬 파일 경로 정규화
+  File? _resolveLocalFile(String? raw) {
+    if (raw == null) return null;
+    var s = raw.trim();
+    if (s.isEmpty) return null;
+    if (s.startsWith('http://') || s.startsWith('https://')) return null;
+    if (s.startsWith('file://')) s = s.substring(7);
+    return File(s);
   }
 
   Widget _buildRideInfo(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: Colors.grey, fontSize: 13)),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
         const SizedBox(height: 4),
-        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        Text(value,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -331,47 +446,66 @@ class _RecordScreenState extends State<RecordScreen> {
 
 class _RouteThumbPainter extends CustomPainter {
   _RouteThumbPainter(this.path);
-  final List<Map<String, dynamic>> path; // [{'lat':..,'lon':..}, ...]
+  final List<Map<String, dynamic>> path;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (path.isEmpty) return;
+
     double minLat = double.infinity, maxLat = -double.infinity;
     double minLon = double.infinity, maxLon = -double.infinity;
     for (final p in path) {
       final lat = (p['lat'] as num).toDouble();
       final lon = (p['lon'] as num).toDouble();
-      if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
-      if (lon < minLon) minLon = lon; if (lon > maxLon) maxLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
     }
     final latSpan = (maxLat - minLat).abs().clamp(1e-6, 1.0);
     final lonSpan = (maxLon - minLon).abs().clamp(1e-6, 1.0);
-    final pad = 12.0;
+    const pad = 12.0;
     final w = size.width - pad * 2;
     final h = size.height - pad * 2;
+
     Offset project(double lat, double lon) {
       final x = ((lon - minLon) / lonSpan) * w + pad;
-      final y = h - ((lat - minLat) / latSpan) * h + pad; // 위가 북쪽
+      final y = h - ((lat - minLat) / latSpan) * h + pad;
       return Offset(x, y);
     }
-    final paint = Paint()
+
+    final stroke = Paint()
       ..color = const Color(0xFF1565C0)
       ..strokeWidth = 4
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
+    final bg = Paint()..color = const Color(0xFFF6F6F6);
+
     final pathDraw = Path();
     bool first = true;
     for (final p in path) {
-      final o = project((p['lat'] as num).toDouble(), (p['lon'] as num).toDouble());
-      if (first) { pathDraw.moveTo(o.dx, o.dy); first = false; }
-      else { pathDraw.lineTo(o.dx, o.dy); }
+      final o = project(
+          (p['lat'] as num).toDouble(), (p['lon'] as num).toDouble());
+      if (first) {
+        pathDraw.moveTo(o.dx, o.dy);
+        first = false;
+      } else {
+        pathDraw.lineTo(o.dx, o.dy);
+      }
     }
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0,0,size.width,size.height), const Radius.circular(12)), Paint()..color=const Color(0xFFF6F6F6));
-    canvas.drawPath(pathDraw, paint);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, size.width, size.height),
+          const Radius.circular(12)),
+      bg,
+    );
+    canvas.drawPath(pathDraw, stroke);
   }
 
   @override
-  bool shouldRepaint(covariant _RouteThumbPainter oldDelegate) => oldDelegate.path != path;
+  bool shouldRepaint(covariant _RouteThumbPainter oldDelegate) =>
+      oldDelegate.path != path;
 }

@@ -20,6 +20,37 @@ class ApiClient {
     return '$baseUrl/$s';
   }
 
+  // ▼ 추가: JWT payload 파서 + per-user key
+  static Map<String, dynamic>? _parseJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      return jsonDecode(payload) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 현재 로그인 사용자의 uid(가능한 클레임에서 탐색)
+  static Future<String> currentUid() async {
+    final token = await _getToken();
+    if (token == null || token.isEmpty) return 'anon';
+    final p = _parseJwt(token) ?? const {};
+    return (p['userId']?.toString()
+        ?? p['id']?.toString()
+        ?? p['uid']?.toString()
+        ?? p['sub']?.toString()
+        ?? p['username']?.toString()
+        ?? 'anon');
+  }
+
+  /// 사용자 스코프 키 생성 (예: ride_records:<uid>)
+  static Future<String> userScopedKey(String base) async {
+    final uid = await currentUid();
+    return '$base:$uid';
+  }
+
   // --- Auth & Headers -------------------------------------------------------
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();

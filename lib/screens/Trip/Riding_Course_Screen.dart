@@ -499,7 +499,7 @@ class _DistanceSectionState extends State<_DistanceSection> {
 }
 
 /* =========================
- * 거리순 버튼 (▲/▼ 토글)
+ * 거리순 버튼
  * ========================= */
 
 class OrderHeaderRow extends StatelessWidget {

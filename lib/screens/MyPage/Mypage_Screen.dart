@@ -18,6 +18,132 @@ import 'package:triprider/screens/MyPage/LogoutScreen.dart';
 import 'package:triprider/widgets/Bottom_App_Bar.dart';
 
 /// =========================
+/// ✅ 팝업 유틸 (로그인 화면의 스타일 그대로 복제)
+/// =========================
+enum PopupType { info, success, warn, error }
+
+void showTripriderPopup(
+    BuildContext context, {
+      required String title,
+      required String message,
+      PopupType type = PopupType.info,
+      Duration duration = const Duration(milliseconds: 2500),
+    }) {
+  final overlay = Overlay.of(context);
+  if (overlay == null) return;
+
+  // (참고용) 타입 색상
+  Color accent;
+  switch (type) {
+    case PopupType.success:
+      accent = const Color(0xFF39C172);
+      break;
+    case PopupType.warn:
+      accent = const Color(0xFFFFA000);
+      break;
+    case PopupType.error:
+      accent = const Color(0xFFE74C3C);
+      break;
+    case PopupType.info:
+    default:
+      accent = const Color(0xFFFF4E6B);
+      break;
+  }
+
+  late OverlayEntry entry;
+  bool closed = false;
+  void safeRemove() {
+    if (!closed && entry.mounted) {
+      closed = true;
+      entry.remove();
+    }
+  }
+
+  entry = OverlayEntry(
+    builder: (ctx) => SafeArea(
+      child: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            left: 16,
+            right: 16,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              builder: (_, t, child) => Opacity(
+                opacity: t,
+                child: Transform.translate(
+                  offset: Offset(0, (1 - t) * -8),
+                  child: child,
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 16, offset: Offset(0, 6)),
+                    ],
+                    border: Border.all(color: const Color(0xFFE9E9EE)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.sports_motorsports_rounded, color: Colors.pink),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.black.withOpacity(0.9),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+                      const SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              message,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                height: 1.35,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  overlay.insert(entry);
+  Future.delayed(duration, safeRemove);
+}
+
+/// =========================
 /// 서버 API 기본 설정
 /// =========================
 
@@ -161,6 +287,7 @@ class _MypageScreenState extends State<MypageScreen>
     if (state == AppLifecycleState.resumed) {
       _loadMyPage();
     }
+    super.didChangeAppLifecycleState(state);
   }
 
   Future<void> _loadMyPage() async {
@@ -180,8 +307,13 @@ class _MypageScreenState extends State<MypageScreen>
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('마이페이지 불러오기 실패: $e')));
+        // 🔔 SnackBar → 커스텀 팝업
+        showTripriderPopup(
+          context,
+          title: '불러오기 실패',
+          message: '마이페이지 불러오기 실패: $e',
+          type: PopupType.error,
+        );
       }
     }
   }
@@ -213,12 +345,23 @@ class _MypageScreenState extends State<MypageScreen>
       }
       setState(() {});
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('프로필이 업데이트됐어요.')));
+
+      // 🔔 SnackBar → 커스텀 팝업
+      showTripriderPopup(
+        context,
+        title: '완료',
+        message: '프로필이 업데이트됐어요.',
+        type: PopupType.success,
+      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('업데이트 실패: $e')));
+      // 🔔 SnackBar → 커스텀 팝업
+      showTripriderPopup(
+        context,
+        title: '업데이트 실패',
+        message: '$e',
+        type: PopupType.error,
+      );
     }
   }
 
@@ -365,7 +508,8 @@ class MyPage_top extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: 0.77,
                         backgroundColor: Colors.white24,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor:
+                        AlwaysStoppedAnimation<Color>(Colors.white),
                         minHeight: 6,
                       ),
                     ),
@@ -388,7 +532,8 @@ class MyPage_top extends StatelessWidget {
 
           // ⭐ 뱃지 & 칭호 UI 복원
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+            padding:
+            const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.15),
               borderRadius: BorderRadius.circular(30),
@@ -403,7 +548,8 @@ class MyPage_top extends StatelessWidget {
                     Text('+6',
                         style: TextStyle(color: Colors.white, fontSize: 18)),
                     SizedBox(width: 8),
-                    Text('뱃지', style: TextStyle(color: Colors.white70)),
+                    Text('뱃지',
+                        style: TextStyle(color: Colors.white70)),
                   ],
                 ),
                 const Text('|',
@@ -413,7 +559,8 @@ class MyPage_top extends StatelessWidget {
                     Text('제주 토박이 +2',
                         style: TextStyle(color: Colors.white, fontSize: 18)),
                     SizedBox(width: 8),
-                    Text('칭호', style: TextStyle(color: Colors.white70)),
+                    Text('칭호',
+                        style: TextStyle(color: Colors.white70)),
                   ],
                 ),
               ],
@@ -425,7 +572,6 @@ class MyPage_top extends StatelessWidget {
     );
   }
 }
-
 
 /// =========================
 /// 하단 메뉴 리스트
@@ -459,7 +605,8 @@ class MyPage_Bottom extends StatelessWidget {
       ),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding:
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -468,8 +615,8 @@ class MyPage_Bottom extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(title,
-                style:
-                const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w500)),
             const Icon(Icons.arrow_forward_ios, size: 18),
           ],
         ),
@@ -532,7 +679,6 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
-
     final initialNet = resolveImageUrl(widget.initialNetworkImage);
 
     final ImageProvider<Object> imageProvider = _image != null
@@ -555,7 +701,8 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
           ),
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius:
+            BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: ListView(
             controller: controller,
@@ -575,7 +722,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(18),
-                          onTap: _pickImage, // 사진 선택
+                          onTap: _pickImage,
                           child: Container(
                             width: 36,
                             height: 36,
@@ -593,10 +740,10 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 16),
               const Text('한줄 소개',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  style: TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               TextField(
                 controller: _controller,
@@ -609,8 +756,8 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
                 ),
               ),
               const SizedBox(height: 12),

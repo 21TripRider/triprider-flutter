@@ -6,11 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:triprider/screens/home/Rentshoplist_Screen.dart';
-import 'package:triprider/screens/trip/Riding_Course_Screen.dart'; // (쓰면 유지, 안 쓰면 삭제해도 무방)
 import 'package:triprider/widgets/Bottom_App_Bar.dart';
 
 import 'package:triprider/screens/Home/Weather/WeatherApi.dart';
 import 'package:triprider/screens/Home/Weather/WeatherResponse.dart';
+
+// ✅ 서버 최신 기록을 우선 사용
+import 'package:triprider/screens/Map/API/Ride_Api.dart';
 
 class Homescreen extends StatefulWidget {
   const Homescreen({super.key});
@@ -29,7 +31,7 @@ class _HomescreenState extends State<Homescreen> {
           SizedBox(height: 15),
           _RentSection(),
           SizedBox(height: 15),
-          _Record(), // ← 실데이터로 채워진 최근 주행 기록 카드
+          _Record(), // 최근 주행 기록 카드
         ],
       ),
       bottomNavigationBar: const BottomAppBarWidget(),
@@ -38,7 +40,7 @@ class _HomescreenState extends State<Homescreen> {
 }
 
 /// ─────────────────────────────────────────────────────────
-/// 날씨 위젯
+/// 날씨 위젯 (기존 유지)
 /// ─────────────────────────────────────────────────────────
 class _Weather extends StatefulWidget {
   const _Weather({super.key});
@@ -54,10 +56,9 @@ class _WeatherState extends State<_Weather> {
   @override
   void initState() {
     super.initState();
-    _future = _api.fetchJeju(); // /api/jeju-weather 호출
+    _future = _api.fetchJeju();
   }
 
-  // 간단 야간 판정: 18시~익일 6시는 ‘밤’
   bool get _isNightNow {
     final h = DateTime.now().hour;
     return h < 6 || h >= 18;
@@ -78,7 +79,8 @@ class _WeatherState extends State<_Weather> {
           }
 
           final w = snap.data!;
-          final probPercent = ((w.precipitationProb ?? 0) * 100).toStringAsFixed(0);
+          final probPercent =
+          ((w.precipitationProb ?? 0) * 100).toStringAsFixed(0);
 
           return Container(
             decoration: BoxDecoration(
@@ -89,24 +91,24 @@ class _WeatherState extends State<_Weather> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                /// 1) 지역명 + 온도
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      '제주도',
-                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
+                    const Text('제주도',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold)),
                     Text(
                       '${w.tempC.toStringAsFixed(1)}°C',
-                      style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 10),
-
-                /// 2) 날씨 아이콘 (낮/밤 + 해/달/부분운/구름)
                 _buildWeatherIcon(
                   skyCode: w.skyCode,
                   rainCode: w.rainCode,
@@ -117,22 +119,24 @@ class _WeatherState extends State<_Weather> {
                   size: 48,
                   color: Colors.white,
                 ),
-
                 const SizedBox(height: 10),
-
-                /// 3) 강수/풍속
                 const Divider(color: Colors.white),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('강수', style: TextStyle(color: Colors.white, fontSize: 20)),
+                    const Text('강수',
+                        style: TextStyle(color: Colors.white, fontSize: 20)),
                     Row(
                       children: [
                         if (w.precipitationProb != null)
-                          Text('$probPercent%', style: const TextStyle(color: Colors.white, fontSize: 20)),
-                        if (w.precipitationProb != null) const SizedBox(width: 6),
+                          Text('$probPercent%',
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 20)),
+                        if (w.precipitationProb != null)
+                          const SizedBox(width: 6),
                         Text('${w.precipitationMm.toStringAsFixed(1)} mm',
-                            style: const TextStyle(color: Colors.white, fontSize: 20)),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 20)),
                         const SizedBox(width: 4),
                         const Icon(Icons.water_drop, color: Colors.white),
                       ],
@@ -143,26 +147,27 @@ class _WeatherState extends State<_Weather> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('풍속', style: TextStyle(color: Colors.white, fontSize: 20)),
+                    const Text('풍속',
+                        style: TextStyle(color: Colors.white, fontSize: 20)),
                     Row(
                       children: [
                         Text('${w.windSpeedMs.toStringAsFixed(1)} m/s',
-                            style: const TextStyle(color: Colors.white, fontSize: 20)),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 20)),
                         const SizedBox(width: 4),
                         const Icon(Icons.air, color: Colors.white),
                       ],
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 16),
-
-                /// 4) 안전 메시지
                 Text(
                   _advisoryMessage(w),
-                  style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold),
                 ),
-
                 const SizedBox(height: 10),
                 const Center(child: Icon(Icons.circle, color: Colors.white, size: 8)),
               ],
@@ -173,7 +178,6 @@ class _WeatherState extends State<_Weather> {
     );
   }
 
-  /// 아이콘 빌더: 번개 > 강수(비/눈) > 하늘상태(맑음/부분운/흐림)
   Widget _buildWeatherIcon({
     required int? skyCode,
     required int? rainCode,
@@ -184,40 +188,32 @@ class _WeatherState extends State<_Weather> {
     double size = 48,
     Color color = Colors.white,
   }) {
-    final int sky = skyCode ?? 1; // 1=맑음, 3=구름많음, 4=흐림
-    final int pty = rainCode ?? 0; // 0=없음, 1=비,2=비/눈,3=눈,4=소나기,5=빗방울,6=빗방울/눈날림,7=눈날림
+    final int sky = skyCode ?? 1;
+    final int pty = rainCode ?? 0;
     final int lgt = lightningCode ?? 0;
 
     final bool precip =
         pty != 0 || precipitationMm > 0 || (precipitationProb ?? 0) > 0.5;
 
-    // 1) 번개
-    if (lgt > 0) {
-      return Icon(Icons.thunderstorm, color: color, size: size);
-    }
+    if (lgt > 0) return Icon(Icons.thunderstorm, color: color, size: size);
 
-    // 2) 강수
     if (precip) {
       if (pty == 3 || pty == 7) {
-        return Icon(Icons.ac_unit, color: color, size: size); // 눈
+        return Icon(Icons.ac_unit, color: color, size: size);
       }
       if (pty == 2 || pty == 6) {
-        return Icon(Icons.cloudy_snowing, color: color, size: size); // 비/눈 혼합
+        return Icon(Icons.cloudy_snowing, color: color, size: size);
       }
-      return Icon(Icons.umbrella, color: color, size: size); // 비/소나기/빗방울
+      return Icon(Icons.umbrella, color: color, size: size);
     }
 
-    // 3) 하늘 상태 (비/눈 없을 때)
     final IconData sun = Icons.wb_sunny;
     final IconData moon = Icons.dark_mode;
     final IconData cloud = Icons.cloud;
 
-    // (a) 맑음
     if (sky == 1) {
       return Icon(isNight ? moon : sun, color: color, size: size);
     }
-
-    // (b) 부분운(해/달 + 구름)
     if (sky == 3) {
       return SizedBox(
         width: size,
@@ -228,7 +224,8 @@ class _WeatherState extends State<_Weather> {
             Positioned(
               left: 2,
               top: 2,
-              child: Icon(isNight ? moon : sun, color: color.withOpacity(0.9), size: size * 0.85),
+              child: Icon(isNight ? moon : sun,
+                  color: color.withOpacity(0.9), size: size * 0.85),
             ),
             Positioned(
               right: 0,
@@ -239,12 +236,9 @@ class _WeatherState extends State<_Weather> {
         ),
       );
     }
-
-    // (c) 흐림
     return Icon(cloud, color: color, size: size);
   }
 
-  // 로딩 스켈레톤
   Widget _skeleton() => Container(
     decoration: BoxDecoration(
       color: Colors.lightBlueAccent.withOpacity(0.6),
@@ -255,7 +249,6 @@ class _WeatherState extends State<_Weather> {
     child: const Center(child: CircularProgressIndicator(color: Colors.white)),
   );
 
-  // 에러 카드
   Widget _errorCard(String msg) => Container(
     decoration: BoxDecoration(
       color: Colors.redAccent,
@@ -276,7 +269,6 @@ class _WeatherState extends State<_Weather> {
     ),
   );
 
-  // 안전 메시지
   String _advisoryMessage(WeatherResponse w) {
     if ((w.precipitationProb ?? 0) >= 0.6 || w.precipitationMm >= 5) {
       return '비 예보가 있어 도로가 미끄러울 수 있으니 감속하세요!';
@@ -292,7 +284,7 @@ class _WeatherState extends State<_Weather> {
 }
 
 /// ─────────────────────────────────────────────────────────
-/// 렌트 배너/버튼 (디자인 그대로 유지)
+/// 렌트 배너
 /// ─────────────────────────────────────────────────────────
 class _RentSection extends StatelessWidget {
   const _RentSection({super.key});
@@ -313,7 +305,7 @@ class _RentSection extends StatelessWidget {
 }
 
 /// ─────────────────────────────────────────────────────────
-/// 최근 주행 기록 위젯 (실데이터 버전)
+/// 최근 주행 기록 카드 (서버 우선 + 폴백 + 1회 재시도)
 /// ─────────────────────────────────────────────────────────
 class _Record extends StatefulWidget {
   const _Record({super.key});
@@ -325,6 +317,7 @@ class _Record extends StatefulWidget {
 class _RecordState extends State<_Record> {
   bool _loading = true;
   Map<String, dynamic>? _latest;
+  bool _retryOnceScheduled = false;
 
   @override
   void initState() {
@@ -332,25 +325,71 @@ class _RecordState extends State<_Record> {
     _loadLatest();
   }
 
-  Future<void> _loadLatest() async {
+  // JWT가 있는 경우 계정별 키, 레거시 키도 함께 체크
+  Future<String> _keyNew() async {
     final prefs = await SharedPreferences.getInstance();
-    final list = prefs.getStringList('ride_records') ?? const <String>[];
-    if (list.isEmpty) {
-      setState(() {
-        _loading = false;
-        _latest = null;
+    final jwt = prefs.getString('jwt') ?? '';
+    final suffix = jwt.isEmpty ? '' : '_${jwt.hashCode.toRadixString(16)}';
+    return 'ride_records$suffix';
+  }
+
+  Future<Map<String, dynamic>?> _loadFromServer() async {
+    try {
+      // 3초 타임아웃: 서버 재기동/네트워크 지연 대비
+      final list = await RideApi.listRides()
+          .timeout(const Duration(seconds: 3));
+
+      if (list.isEmpty) return null;
+
+      // 최신 종료시각 순
+      list.sort((a, b) {
+        final bd = DateTime.tryParse('${b['finishedAt'] ?? b['startedAt'] ?? ''}') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        final ad = DateTime.tryParse('${a['finishedAt'] ?? a['startedAt'] ?? ''}') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        return bd.compareTo(ad);
       });
-      return;
+
+      final r = list.first;
+      return {
+        'startedAt': r['startedAt'],
+        'endedAt': r['finishedAt'],
+        'elapsedSeconds': (r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0) is num
+            ? (r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0).toInt()
+            : int.tryParse('${r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0}') ?? 0,
+        'distanceMeters':
+        (((r['totalKm'] as num?)?.toDouble() ?? double.tryParse('${r['totalKm'] ?? 0}') ?? 0.0) * 1000.0),
+        'avgSpeedKmh': (r['avgSpeedKmh'] as num?)?.toDouble() ??
+            double.tryParse('${r['avgSpeedKmh'] ?? 0}') ??
+            0.0,
+        'maxSpeedKmh': (r['maxSpeedKmh'] as num?)?.toDouble() ??
+            double.tryParse('${r['maxSpeedKmh'] ?? 0}') ??
+            0.0,
+      };
+    } catch (_) {
+      return null;
     }
+  }
+
+  Future<Map<String, dynamic>?> _loadFromLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final newKey = await _keyNew();
+    final legacyKey = 'ride_records'; // 레거시 호환
+
+    List<String> raw = prefs.getStringList(newKey) ?? const <String>[];
+    if (raw.isEmpty) {
+      raw = prefs.getStringList(legacyKey) ?? const <String>[];
+    }
+    if (raw.isEmpty) return null;
 
     final parsed = <Map<String, dynamic>>[];
-    for (final s in list) {
+    for (final s in raw) {
       try {
         parsed.add(jsonDecode(s) as Map<String, dynamic>);
       } catch (_) {}
     }
+    if (parsed.isEmpty) return null;
 
-    // 최신 종료 시각 순으로 정렬
     parsed.sort((a, b) {
       final ad = DateTime.tryParse(a['endedAt'] ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0);
@@ -358,11 +397,47 @@ class _RecordState extends State<_Record> {
           DateTime.fromMillisecondsSinceEpoch(0);
       return bd.compareTo(ad);
     });
+    return parsed.first;
+  }
 
+  Future<void> _loadLatest() async {
+    // 1) 서버 우선
+    final fromServer = await _loadFromServer();
+    if (fromServer != null) {
+      if (!mounted) return;
+      setState(() {
+        _latest = fromServer;
+        _loading = false;
+      });
+      return;
+    }
+
+    // 2) 로컬 폴백
+    final fromLocal = await _loadFromLocal();
+    if (fromLocal != null) {
+      if (!mounted) return;
+      setState(() {
+        _latest = fromLocal;
+        _loading = false;
+      });
+      return;
+    }
+
+    // 3) 둘 다 없으면: 빈 카드 + 1회 지연 재시도 (서버 재기동 직후 대비)
+    if (!mounted) return;
     setState(() {
-      _latest = parsed.isNotEmpty ? parsed.first : null;
+      _latest = null;
       _loading = false;
     });
+
+    if (!_retryOnceScheduled) {
+      _retryOnceScheduled = true;
+      Future.delayed(const Duration(milliseconds: 2500), () async {
+        if (!mounted) return;
+        setState(() => _loading = true);
+        await _loadLatest();
+      });
+    }
   }
 
   String _formatDate(DateTime d) =>
@@ -398,11 +473,16 @@ class _RecordState extends State<_Record> {
           ),
           padding: const EdgeInsets.all(20.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
-              _HeaderRowRightStat(label: '최근 주행 기록', value: '-- KM'),
+              _HeaderRowRightStat(label: '최근 주행 기록', valueText: '0.0', unit: 'km'),
               SizedBox(height: 12),
-              Text('저장된 주행 기록이 없습니다.',
-                  style: TextStyle(color: Colors.grey)),
+              Divider(color: Colors.grey),
+              SizedBox(height: 12),
+              Center(
+                child: Text('최근 주행기록 없음',
+                    style: TextStyle(color: Colors.grey, fontSize: 16)),
+              ),
             ],
           ),
         ),
@@ -433,14 +513,12 @@ class _RecordState extends State<_Record> {
             padding: const EdgeInsets.all(20.0),
             child: Column(
               children: [
-                // 상단: 타이틀 + 거리 합계
                 _HeaderRowRightStat(
                   label: '최근 주행 기록',
-                  value: '${distanceKm.round()}KM',
+                  valueText: distanceKm.toStringAsFixed(1),
+                  unit: 'km',
                 ),
                 const SizedBox(height: 8),
-
-                // 날짜/위치 태그
                 Row(
                   children: [
                     _Chip(text: _formatDate(startedAt)),
@@ -448,17 +526,14 @@ class _RecordState extends State<_Record> {
                     if (route.isNotEmpty) _Chip(text: route),
                   ],
                 ),
-
                 const SizedBox(height: 15),
                 const Divider(color: Colors.grey),
                 const SizedBox(height: 15),
-
-                // 하단: 통계
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _SmallStat(title: '평균 속도', value: '${avg.round()}KM'),
-                    _SmallStat(title: '최고 속도', value: '${max.round()} KM'),
+                    _SmallStat(title: '평균 속도', value: '${avg.toStringAsFixed(1)} km/h'),
+                    _SmallStat(title: '최고 속도', value: '${max.toStringAsFixed(1)} km/h'),
                     _SmallStat(title: '주행 시간', value: _formatHms(secs)),
                   ],
                 ),
@@ -474,21 +549,33 @@ class _RecordState extends State<_Record> {
 /// 타이틀-우측 수치
 class _HeaderRowRightStat extends StatelessWidget {
   final String label;
-  final String value;
-  const _HeaderRowRightStat({super.key, required this.label, required this.value});
+  final String valueText; // ex) "0.4"
+  final String unit; // ex) "km"
+  const _HeaderRowRightStat({
+    super.key,
+    required this.label,
+    required this.valueText,
+    required this.unit,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+        Text(label,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
         Row(
           children: [
-            Text(value.replaceAll('KM', ''), // 숫자만 볼드
-                style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
-            const SizedBox(width: 2),
-            const Text('KM', style: TextStyle(color: Colors.grey, fontSize: 20, fontWeight: FontWeight.w600)),
+            Text(valueText,
+                style:
+                const TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
+            const SizedBox(width: 4),
+            Text(unit,
+                style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600)),
           ],
         ),
       ],

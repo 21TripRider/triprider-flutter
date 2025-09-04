@@ -420,13 +420,13 @@ class _CommentSheetState extends State<CommentSheet> {
                                                 onPressed: () =>
                                                     Navigator.pop(
                                                         context, false),
-                                                child: const Text('취소'),
+                                                child: const Text('취소',style: TextStyle(color: Colors.black),),
                                               ),
                                               TextButton(
                                                 onPressed: () =>
                                                     Navigator.pop(
                                                         context, true),
-                                                child: const Text('삭제'),
+                                                child: const Text('삭제',style: TextStyle(color: Colors.black)),
                                               ),
                                             ],
                                           ),

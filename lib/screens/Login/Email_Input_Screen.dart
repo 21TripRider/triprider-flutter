@@ -1,5 +1,7 @@
 // lib/screens/Login/Email_Input_Screen.dart
+import 'dart:convert';                               // ✅ 추가
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;             // ✅ 추가
 import 'package:triprider/screens/Login/Password_Input_Screen.dart';
 import 'package:triprider/screens/Login/widgets/Next_Button_Widget_Child.dart';
 import 'package:triprider/screens/Login/widgets/Login_Screen_Button.dart';
@@ -28,12 +30,59 @@ class _EmailInputScreenState extends State<EmailInputScreen> {
     return emailReg.hasMatch(email);
   }
 
-  void _next() {
+  // ✅ 추가: 이메일 중복 체크 (중복이면 true, 사용 가능이면 false, 판단 불가면 null)
+  Future<bool?> _isEmailDuplicate(String email) async {
+    try {
+      final url = Uri.parse('http://10.0.2.2:8080/api/auth/check-email?email=$email');
+      final res = await http.get(url);
+
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body is Map && body.containsKey('exists')) {
+          return body['exists'] == true; // true면 중복
+        }
+        // 다른 포맷을 쓰는 경우를 최대한 흡수
+        if (body is Map && body.containsKey('available')) {
+          return body['available'] == false;
+        }
+        if (body is Map && body.containsKey('duplicate')) {
+          return body['duplicate'] == true;
+        }
+        if (body is Map && body.containsKey('isAvailable')) {
+          return body['isAvailable'] == false;
+        }
+        if (body is Map && body.containsKey('status')) {
+          final s = '${body['status']}'.toLowerCase();
+          if (s.contains('taken') || s.contains('exists') || s.contains('duplicate')) return true;
+          if (s.contains('available')) return false;
+        }
+        return null; // 포맷 모호 → 판단 불가
+      }
+      if (res.statusCode == 409) return true;   // 중복
+      if (res.statusCode == 404 || res.statusCode == 204) return false; // 없음=사용 가능
+      return null; // 기타 상태 → 판단 불가
+    } catch (_) {
+      return null; // 네트워크 오류 → 판단 불가
+    }
+  }
+
+  // ⬇️ 기존 로직 유지 + 중복일 때만 막기
+  void _next() async {
     final email = emailController.text.trim();
     if (!_isValidEmail(email)) {
       _showPopup('입력 오류', '유효한 이메일 형식을 입력해주세요.', type: PopupType.warn);
       return;
     }
+
+    // ✅ 중복 확인: 중복 확실할 때만 막음
+    final dup = await _isEmailDuplicate(email);
+    if (!mounted) return;
+    if (dup == true) {
+      _showPopup('중복 이메일', '이미 사용 중인 이메일입니다.', type: PopupType.warn);
+      return; // ➜ 다음 화면 이동 금지
+    }
+
+    // 사용 가능(false) 또는 판단 불가(null)는 진행 (최종 회원가입에서 서버가 또 검증함)
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => PasswordInputScreen(email: email)),
     );
@@ -157,19 +206,23 @@ void showTripriderPopup(
                 color: Colors.transparent,
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+                  // showTripriderPopup의 Container(decoration) 부분만 수정
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.7),
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 16, offset: Offset(0, 6))],
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 16, offset: Offset(0, 6)),
+                    ], // ✅ 단일 → 리스트로
                     border: Border.all(color: const Color(0xFFE9E9EE)),
                   ),
+
                   child: Column(
                     mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
                           Icon(Icons.sports_motorsports_rounded, color: Colors.pink),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(title,
                               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, color: Colors.black.withOpacity(0.9)),
@@ -177,10 +230,10 @@ void showTripriderPopup(
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
-                      const SizedBox(height: 10),
-                      Text(message, style: const TextStyle(fontSize: 14.5, height: 1.35, color: Colors.black87)),
+                      SizedBox(height: 10),
+                      Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+                      SizedBox(height: 10),
+                      Text(message, style: TextStyle(fontSize: 14.5, height: 1.35, color: Colors.black87)),
                     ],
                   ),
                 ),

@@ -3,7 +3,130 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:triprider/core/network/Api_client.dart';
 import 'package:triprider/screens/RiderGram/Post.dart';
-import 'package:triprider/screens/RiderGram/Post_Detail.dart'; // ★ 상세화면 import
+import 'package:triprider/screens/RiderGram/Post_Detail.dart';
+
+/// ✅ 팝업 유틸 (로그인 화면의 스타일 그대로 복제)
+enum PopupType { info, success, warn, error }
+
+void showTripriderPopup(
+    BuildContext context, {
+      required String title,
+      required String message,
+      PopupType type = PopupType.info,
+      Duration duration = const Duration(milliseconds: 2500),
+    }) {
+  final overlay = Overlay.of(context);
+  if (overlay == null) return;
+
+  Color accent;
+  switch (type) {
+    case PopupType.success:
+      accent = const Color(0xFF39C172);
+      break;
+    case PopupType.warn:
+      accent = const Color(0xFFFFA000);
+      break;
+    case PopupType.error:
+      accent = const Color(0xFFE74C3C);
+      break;
+    case PopupType.info:
+    default:
+      accent = const Color(0xFFFF4E6B);
+      break;
+  }
+
+  late OverlayEntry entry;
+  bool closed = false;
+  void safeRemove() {
+    if (!closed && entry.mounted) {
+      closed = true;
+      entry.remove();
+    }
+  }
+
+  entry = OverlayEntry(
+    builder: (ctx) => SafeArea(
+      child: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            left: 16,
+            right: 16,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              builder: (_, t, child) => Opacity(
+                opacity: t,
+                child: Transform.translate(
+                  offset: Offset(0, (1 - t) * -8),
+                  child: child,
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black26, blurRadius: 16, offset: Offset(0, 6)),
+                    ],
+                    border: Border.all(color: const Color(0xFFE9E9EE)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.sports_motorsports_rounded, color: Colors.pink),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.black.withOpacity(0.9),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+                      const SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              message,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                height: 1.35,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  overlay.insert(entry);
+  Future.delayed(duration, safeRemove);
+}
 
 class MyUploadScreen extends StatefulWidget {
   const MyUploadScreen({super.key});
@@ -43,7 +166,6 @@ class _MyUploadScreenState extends State<MyUploadScreen> {
   }
 
   Future<void> _openDetail(PostModel p) async {
-    // 상세에서 좋아요/댓글 변경했을 수 있으니 복귀 후 새로고침
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -61,8 +183,8 @@ class _MyUploadScreenState extends State<MyUploadScreen> {
         title: const Text('게시글 삭제'),
         content: const Text('정말 삭제하시겠어요?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('삭제')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소', style: TextStyle(color: Colors.black))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('삭제', style: TextStyle(color: Colors.black))),
         ],
       ),
     );
@@ -71,9 +193,22 @@ class _MyUploadScreenState extends State<MyUploadScreen> {
     try {
       await ApiClient.delete('/api/posts/${p.id}');
       setState(() => _myPosts.removeAt(index));
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('삭제되었습니다.')));
+
+      // 🔔 SnackBar → 커스텀 팝업 (삭제 성공)
+      showTripriderPopup(
+        context,
+        title: '삭제 완료',
+        message: '게시글이 삭제되었습니다.',
+        type: PopupType.success,
+      );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
+      // 🔔 SnackBar → 커스텀 팝업 (삭제 실패)
+      showTripriderPopup(
+        context,
+        title: '삭제 실패',
+        message: '$e',
+        type: PopupType.error,
+      );
     }
   }
 
@@ -115,7 +250,7 @@ class _MyUploadScreenState extends State<MyUploadScreen> {
                 final post = _myPosts[index];
                 return _MyPostCard(
                   post: post,
-                  onTap: () => _openDetail(post),     // ★ 탭 시 상세로
+                  onTap: () => _openDetail(post),
                   onDelete: () => _delete(post, index),
                 );
               },
@@ -163,10 +298,10 @@ class _MyPostCard extends StatelessWidget {
     const double gap = 14;
     const double thumb = 120;
 
-    return Material( // ★ InkWell 효과를 위한 Material
+    return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap, // ★ 전체 카드 탭 가능
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           child: Column(
@@ -195,12 +330,10 @@ class _MyPostCard extends StatelessWidget {
                     ),
                   if (hasImage) const SizedBox(width: gap),
 
-                  // 오른쪽 영역
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 제목 + 휴지통
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -220,8 +353,6 @@ class _MyPostCard extends StatelessWidget {
                             ),
                           ],
                         ),
-
-                        // 위치
                         if ((post.location ?? '').isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 6, right: 8),
@@ -230,8 +361,6 @@ class _MyPostCard extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),
                           ),
-
-                        // 해시태그
                         if (tags.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 8, right: 8),
@@ -255,10 +384,7 @@ class _MyPostCard extends StatelessWidget {
                   ),
                 ],
               ),
-
               const SizedBox(height: 10),
-
-              // 하단 카운트
               Row(
                 children: [
                   const Icon(Icons.favorite_border, size: 22, color: Colors.black26),
@@ -287,7 +413,6 @@ class _MyPostCard extends StatelessWidget {
                   ),
                 ],
               ),
-
               const SizedBox(height: 12),
             ],
           ),

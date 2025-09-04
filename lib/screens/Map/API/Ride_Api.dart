@@ -57,4 +57,3 @@ class RideApi {
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
 }
-
