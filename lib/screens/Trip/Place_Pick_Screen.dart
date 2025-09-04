@@ -369,6 +369,7 @@ class _PlacePickScreenState extends State<PlacePickScreen>
           Expanded(
             child: TabBarView(
               controller: _tab,
+              physics: const NeverScrollableScrollPhysics(), // ⛔
               children: List.generate(widget.options.length, (i) {
                 final list = _results[i] ?? [];
                 if (list.isEmpty) {
