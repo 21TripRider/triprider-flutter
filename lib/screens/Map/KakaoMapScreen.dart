@@ -1,20 +1,22 @@
 // lib/screens/Map/KakaoMapScreen.dart
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
 import 'package:triprider/controllers/map_controller.dart';
 import 'package:triprider/data/kakao_local_api.dart';
-import 'package:triprider/screens/Map/API/Ride_Api.dart';
+import 'package:triprider/screens/Map/Rider_Tracking_Screen.dart';
+// import 'package:triprider/screens/Map/API/Ride_Api.dart';
+
 import 'package:triprider/state/map_view_model.dart';
+import 'package:triprider/state/rider_tracker_service.dart';
 import 'package:triprider/utils/kakao_map_channel.dart';
 import 'package:triprider/widgets/Bottom_App_Bar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:url_launcher/url_launcher.dart';
 
 /// =======================
@@ -143,7 +145,8 @@ void showTripriderPopup(
 }
 
 class KakaoMapScreen extends StatefulWidget {
-  const KakaoMapScreen({super.key});
+  const KakaoMapScreen({super.key, this.overlayFromTracking = false});
+  final bool overlayFromTracking; // 트래킹 화면 위에 얹혀진 맵인지 여부
 
   @override
   State<KakaoMapScreen> createState() => _KakaoMapScreenState();
@@ -159,23 +162,14 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
   final int _zoomLevel = 16;
   String? _warning;
 
-  // Tracking state
-  bool _tracking = false;
-  int? _rideId; // 서버 라이딩 세션 ID
-  DateTime? _startTime;
-  Timer? _ticker;
-  Duration _elapsed = Duration.zero;
-  StreamSubscription<Position>? _posSub;
+  // Tracking state (별도 RideTrackingScreen으로 이동)
+  bool _tracking = false; // HUD/버튼 색상 등 과거 용도, 현재는 사용 안 함
+  StreamSubscription<Position>? _posSub; // 사용자 위치 아이콘 업데이트만 유지
   StreamSubscription<Position>? _userPosSub;
-  final List<List<double>> _path = <List<double>>[]; // [lat, lon]
-  final List<Map<String, dynamic>> _batchPoints = <Map<String, dynamic>>[]; // 서버 업로드용 배치
-  double _totalDistanceMeters = 0.0;
-  double _maxSpeedKmh = 0.0;
-  double? _currentSpeedKmh;
   int _lastRenderedPointCount = 0;
 
-  // 저장 연타 방지
-  bool _savingRide = false;
+  // 저장 연타 방지 (사용 안 함)
+  // bool _savingRide = false;
 
   // POI/라벨 관련
   bool _loadingPois = false;
@@ -204,14 +198,6 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
   }
 
   // ======================= 공통 유틸 =======================
-
-  Future<String> _prefsKeyRideRecords() async {
-    final prefs = await SharedPreferences.getInstance();
-    // 앱에서 JWT를 'jwt' 키에 저장해 사용 중 → 해시를 suffix로 사용해 계정 스코프 키 생성
-    final jwt = prefs.getString('jwt') ?? '';
-    final suffix = jwt.isEmpty ? '' : '_${jwt.hashCode.toRadixString(16)}';
-    return 'ride_records$suffix';
-  }
 
   List<Map<String, dynamic>> _withDistance(
       double lat, double lon, List<Map<String, dynamic>> items) {
@@ -407,7 +393,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
               ),
             ),
           ),
-        if (_tracking) _trackingHUD(),
+        // 주행 HUD는 별도 화면에서 표시 (기존 HUD 제거)
         // 상단 필터
         Positioned(
           top: safeTop + 44,
@@ -488,11 +474,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              FloatingActionButton(
-                onPressed: _onPlayPressed,
-                backgroundColor: _tracking ? Colors.red : null,
-                child: Icon(_tracking ? Icons.stop : Icons.play_arrow),
-              ),
+              _TrackingPlayButton(onPressed: _onPlayPressed),
             ],
           ),
         ),
@@ -500,262 +482,52 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     );
   }
 
-  void _onPlayPressed() {
-    if (_tracking) {
-      // 종료 연타 방지
-      if (_savingRide) return;
-      _savingRide = true;
-      _stopTracking().whenComplete(() {
-        _savingRide = false;
-      });
-    } else {
-      _startTracking();
+  void _onPlayPressed() async {
+    // 서비스 상태 복원 후 동작 결정
+    final svc = RideTrackerService.instance;
+    await svc.tryRestore();
+    if (svc.isActive) {
+      // 트래킹 화면 위에 얹힌 맵이면 현재 맵을 닫아 기존 트래킹 화면으로 복귀
+      if (widget.overlayFromTracking) {
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+      // 일반 맵에서라도 기존 트래킹이 있다면 새로 만들지 말고 같은 트래킹 화면을 맨 위로
+      // (간단 처리: 동일 화면을 push 하지 않고 그대로 재사용하도록 pop-if-possible)
+      _openRideTrackingScreen();
+      return;
     }
+    // 세션이 없으면 새로 시작
+    await svc.start();
+    _openRideTrackingScreen();
   }
 
-  Widget _trackingHUD() {
-    final hh = _elapsed.inHours.remainder(60).toString().padLeft(2, '0');
-    final mm = _elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final ss = _elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
-    final current =
-    _currentSpeedKmh == null ? '-' : _currentSpeedKmh!.toStringAsFixed(1);
-    return Positioned(
-      top: 16,
-      left: 16,
-      right: 16,
-      child: Material(
-        color: Colors.black.withOpacity(0.55),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('시간 $hh:$mm:$ss',
-                  style: const TextStyle(color: Colors.white, fontSize: 14)),
-              Text('현재속도 ${current}km/h',
-                  style: const TextStyle(color: Colors.white, fontSize: 14)),
-              Text('거리 ${( _totalDistanceMeters / 1000).toStringAsFixed(2)}km',
-                  style: const TextStyle(color: Colors.white, fontSize: 14)),
-            ],
-          ),
-        ),
+  Future<void> _openRideTrackingScreen() async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const RideTrackingScreen(),
+        fullscreenDialog: true,
       ),
     );
-  }
-
-  // ======================= 트래킹 시작/종료 =======================
-
-  void _startTracking() async {
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('위치 서비스가 꺼져 있습니다.')));
-      return;
-    }
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.deniedForever ||
-        permission == LocationPermission.denied) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('위치 권한이 필요합니다.')));
-      return;
-    }
-
-    setState(() {
-      _tracking = true;
-      _startTime = DateTime.now();
-      _elapsed = Duration.zero;
-      _path.clear();
-      _totalDistanceMeters = 0.0;
-      _maxSpeedKmh = 0.0;
-      _currentSpeedKmh = null;
-      _batchPoints.clear();
-    });
-
-    // 서버 세션 시작(중복 start는 서버에서 재사용)
-    try {
-      final id = await RideApi.startRide();
-      _rideId = id;
-    } catch (_) {
-      _rideId = null; // 오프라인 허용
-    }
-
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_startTime != null) {
-        setState(() {
-          _elapsed = DateTime.now().difference(_startTime!);
-        });
-      }
-    });
-
-    _posSub?.cancel();
-    _posSub = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.best,
-        distanceFilter: 5,
-      ),
-    ).listen((pos) async {
-      final lat = pos.latitude;
-      final lon = pos.longitude;
-      final speedKmh = (pos.speed.isFinite ? pos.speed : 0.0) * 3.6; // m/s -> km/h
-      setState(() {
-        _currentSpeedKmh = speedKmh;
-        if (speedKmh > _maxSpeedKmh) _maxSpeedKmh = speedKmh;
-      });
-
-      if (_path.isNotEmpty) {
-        final prev = _path.last;
-        final d = Geolocator.distanceBetween(prev[0], prev[1], lat, lon);
-        if (d >= 1.0) {
-          _totalDistanceMeters += d;
-          _path.add(<double>[lat, lon]);
-        }
-      } else {
-        _path.add(<double>[lat, lon]);
-      }
-
-      _batchPoints.add({
-        'seq': _path.length,
-        'lat': lat,
-        'lng': lon,
-        'speedKmh': speedKmh,
-        'epochMillis': DateTime.now().millisecondsSinceEpoch,
-      });
-      if (_rideId != null && _batchPoints.length >= 5) {
-        final sending = List<Map<String, dynamic>>.from(_batchPoints);
-        _batchPoints.clear();
-        try {
-          await RideApi.uploadPoints(rideId: _rideId!, points: sending);
-        } catch (_) {}
-      }
-
-      try {
-        await _channel.animateCamera(
-            lat: lat, lon: lon, zoomLevel: _zoomLevel, durationMs: 350);
-        await _channel.setUserLocation(lat: lat, lon: lon);
-      } catch (_) {}
-    });
-  }
-
-  Future<void> _stopTracking() async {
-    _posSub?.cancel();
-    _ticker?.cancel();
-    setState(() {
-      _tracking = false;
-    });
-
-    final elapsedSec = _elapsed.inSeconds.toDouble().clamp(1, double.infinity);
-    final hours = elapsedSec / 3600.0;
-    final avgSpeedKmh =
-    hours > 0 ? (_totalDistanceMeters / 1000.0) / hours : 0.0;
-
-    // 남은 배치 업로드
-    if (_rideId != null && _batchPoints.isNotEmpty) {
-      final sending = List<Map<String, dynamic>>.from(_batchPoints);
-      _batchPoints.clear();
-      try {
-        await RideApi.uploadPoints(rideId: _rideId!, points: sending);
-      } catch (_) {}
-    }
-
-    // 레코드
-    final record = <String, dynamic>{
-      'startedAt': _startTime?.toIso8601String(),
-      'endedAt': DateTime.now().toIso8601String(),
-      'elapsedSeconds': _elapsed.inSeconds,
-      'distanceMeters': _totalDistanceMeters,
-      'maxSpeedKmh': _maxSpeedKmh,
-      'avgSpeedKmh': avgSpeedKmh,
-      'path': _path.map((p) => {'lat': p[0], 'lon': p[1]}).toList(),
-    };
-
-    // 썸네일 생성 (URL 길이 제한을 고려해 agresive 샘플링)
-    String? imagePath;
-    try {
-      String? staticPath = await _buildGoogleStaticMapForPath(_path); // 1차
-      staticPath ??= await _buildStaticMapForPath(_path);             // 2차
-      if (staticPath != null) imagePath = staticPath;
-    } catch (_) {}
-    try {
-      if (imagePath == null) {
-        imagePath = await _channel.captureSnapshot();
-      }
-    } catch (_) {}
-
-    // 로컬 저장(계정 스코프 + 중복 방지)
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = await _prefsKeyRideRecords();
-      final list = prefs.getStringList(key) ?? <String>[];
-
-      final withImage = Map<String, dynamic>.from(record);
-      if (imagePath != null) withImage['imagePath'] = imagePath;
-
-      bool merged = false;
-      final ended = DateTime.tryParse(withImage['endedAt'] ?? '');
-      final newKm =
-          ((withImage['distanceMeters'] as num?)?.toDouble() ?? 0.0) / 1000.0;
-
-      for (int i = 0; i < list.length; i++) {
-        try {
-          final m = jsonDecode(list[i]) as Map<String, dynamic>;
-          final e = DateTime.tryParse(m['endedAt'] ?? '');
-          if (ended != null && e != null) {
-            final sameMinute = (ended.millisecondsSinceEpoch ~/ 60000) ==
-                (e.millisecondsSinceEpoch ~/ 60000);
-            final km =
-                ((m['distanceMeters'] as num?)?.toDouble() ?? 0.0) / 1000.0;
-            if (sameMinute && ((newKm - km).abs() < 0.1)) {
-              list[i] = jsonEncode(withImage); // 덮어쓰기
-              merged = true;
-              break;
-            }
-          }
-        } catch (_) {}
-      }
-      if (!merged) list.add(jsonEncode(withImage));
-      await prefs.setStringList(key, list);
-    } catch (_) {}
-
-    // 서버 종료(1회만)
-    if (_rideId != null) {
-      final meta = <String, dynamic>{
-        'title': '라이딩',
-        'memo': '',
-        'elapsedSeconds': _elapsed.inSeconds,
-        'distanceMeters': _totalDistanceMeters,
-        'avgSpeedKmh': avgSpeedKmh,
-        'maxSpeedKmh': _maxSpeedKmh,
-        'startedAt': _startTime?.toIso8601String(),
-        'finishedAt': DateTime.now().toIso8601String(),
-      };
-      try {
-        await RideApi.finishRide(
-          rideId: _rideId!,
-          body: meta,
-          snapshot: imagePath != null ? File(imagePath) : null,
-        );
-      } catch (_) {}
-    }
-
     if (!mounted) return;
-
-    // 🔔 SnackBar → 커스텀 팝업
-    showTripriderPopup(
-      context,
-      title: '주행 기록',
-      message: '주행 기록 저장 완료',
-      type: PopupType.success,
-    );
-
-    try {
-      await _channel.removeAllSpotLabel();
-    } catch (_) {}
+    if (result is Map<String, dynamic>) {
+      showTripriderPopup(
+        context,
+        title: '주행 기록',
+        message: '주행 기록 저장 완료',
+        type: PopupType.success,
+      );
+      try {
+        await _channel.removeAllSpotLabel();
+      } catch (_) {}
+    }
   }
+
+  // 기존 HUD 제거됨
+
+  // 트래킹 로직은 전부 RideTrackingScreen에서만 동작합니다
+
+  // 과거 트래킹 종료 로직은 RideTrackingScreen으로 이관됨
 
   void _startUserLocationUpdates() {
     _userPosSub?.cancel();
@@ -922,108 +694,118 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     }();
   }
 
-  // ======================= Static Map 생성 =======================
-
-  // Google Static: URL 길이 제한(≈2k) 방지를 위해 80포인트로 샘플링 + 소수점 5자리
-  Future<String?> _buildGoogleStaticMapForPath(List<List<double>> path) async {
-    if (path.length < 2) return null;
-    final sampled = _sampleForStatic(path, 80);
-    final pathParam = sampled
-        .map((p) => '${p[0].toStringAsFixed(5)},${p[1].toStringAsFixed(5)}')
-        .join('|'); // lat,lon
-    final params = {
-      'size': '800x600',
-      'scale': '2',
-      'path': 'color:0x1565C0ff|weight:6|$pathParam',
-      'key': _googleStaticApiKey,
-    };
-    final uri = Uri.https('maps.googleapis.com', '/maps/api/staticmap', params);
-    final resp = await http.get(uri);
-    if (resp.statusCode != 200 || resp.bodyBytes.isEmpty) return null;
-    final dir = await Directory.systemTemp.createTemp('triprider_gstatic');
-    final file = File('${dir.path}/route_${DateTime.now().millisecondsSinceEpoch}.png');
-    await file.writeAsBytes(resp.bodyBytes);
-    return file.path;
-  }
-
-  // Kakao Static: 조금 더 여유롭게 120포인트로 샘플링 + 소수점 5자리
-  Future<String?> _buildStaticMapForPath(List<List<double>> path) async {
-    if (path.length < 2) return null;
-    double minLat = path.first[0], maxLat = path.first[0];
-    double minLon = path.first[1], maxLon = path.first[1];
-    for (final p in path) {
-      if (p[0] < minLat) minLat = p[0];
-      if (p[0] > maxLat) maxLat = p[0];
-      if (p[1] < minLon) minLon = p[1];
-      if (p[1] > maxLon) maxLon = p[1];
-    }
-    final centerLat = (minLat + maxLat) / 2;
-    final centerLon = (minLon + maxLon) / 2;
-    final latSpan = (maxLat - minLat).abs().clamp(0.0001, 180.0);
-    final lonSpan = (maxLon - minLon).abs().clamp(0.0001, 360.0);
-    final span = latSpan > lonSpan ? latSpan : lonSpan;
-    int level = 16;
-    if (span > 0.5) {
-      level = 9;
-    } else if (span > 0.25) {
-      level = 10;
-    } else if (span > 0.1) {
-      level = 11;
-    } else if (span > 0.05) {
-      level = 12;
-    } else if (span > 0.02) {
-      level = 13;
-    } else if (span > 0.01) {
-      level = 14;
-    } else if (span > 0.005) {
-      level = 15;
-    } else {
-      level = 16;
-    }
-
-    final sampled = _sampleForStatic(path, 120);
-    final pts = sampled
-        .map((p) => '${p[1].toStringAsFixed(5)},${p[0].toStringAsFixed(5)}')
-        .join('|'); // lon,lat
-    final params = {
-      'center':
-      '${centerLon.toStringAsFixed(6)},${centerLat.toStringAsFixed(6)}',
-      'level': level.toString(),
-      'w': '800',
-      'h': '600',
-      'paths': 'color:0x1565C0|width:6|$pts',
-    };
-    final uri = Uri.https('dapi.kakao.com', '/v2/maps/staticmap', params);
-    final resp =
-    await http.get(uri, headers: {'Authorization': 'KakaoAK $_kakaoRestApiKey'});
-    if (resp.statusCode != 200 || resp.bodyBytes.isEmpty) return null;
-    final dir = await Directory.systemTemp.createTemp('triprider_static');
-    final file =
-    File('${dir.path}/route_${DateTime.now().millisecondsSinceEpoch}.png');
-    await file.writeAsBytes(resp.bodyBytes);
-    return file.path;
-  }
-
-  List<List<double>> _sampleForStatic(List<List<double>> src, int maxPoints) {
-    if (src.length <= maxPoints) return src;
-    final out = <List<double>>[];
-    final step = src.length / maxPoints;
-    double acc = 0;
-    for (int i = 0; i < src.length; i++) {
-      if (out.isEmpty || i >= acc) {
-        out.add(src[i]);
-        acc += step;
-      }
-    }
-    if (out.last != src.last) out.add(src.last);
-    return out;
-  }
+  // Static Map 생성 로직 제거됨(주행 종료 로직 이관)
 
   @override
   void dispose() {
     _posSub?.cancel();
     _userPosSub?.cancel();
-    _ticker?.cancel();
     super.dispose();
+  }
+
+}
+
+class _TrackingPlayButton extends StatefulWidget {
+  const _TrackingPlayButton({required this.onPressed});
+  final VoidCallback onPressed;
+  @override
+  State<_TrackingPlayButton> createState() => _TrackingPlayButtonState();
+}
+
+class _TrackingPlayButtonState extends State<_TrackingPlayButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ac =
+  AnimationController(vsync: this, duration: const Duration(seconds: 2))
+    ..repeat();
+  final RideTrackerService _svc = RideTrackerService.instance;
+  bool _trackingActive = false;
+  bool _trackingPaused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFlag();
+    _svc.addListener(_onSvc);
+  }
+
+  Future<void> _loadFlag() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _trackingActive = prefs.getBool('tracking_active') ?? false;
+        _trackingPaused = prefs.getBool('tracking_paused') ?? false;
+      });
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 애니메이션 on/off 제어
+    if (_trackingActive) {
+      if (!_ac.isAnimating) _ac.repeat();
+    } else {
+      if (_ac.isAnimating) _ac.stop(canceled: false);
+    }
+    return GestureDetector(
+      onTap: widget.onPressed,
+      child: SizedBox(
+        width: 88,
+        height: 88,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // 회전하는 스트로크(주행중일 때만)
+            if (_trackingActive)
+              RotationTransition(
+                turns: _ac,
+                child: Container(
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.transparent, width: 4),
+                    gradient: const SweepGradient(
+                      colors: [
+                        Color(0x00FFFFFF),
+                        Color(0x55FFFFFF),
+                        Color(0x00FFFFFF),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            Container(
+              width: 88,
+              height: 88,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFF4E6B),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _trackingActive
+                    ? (_trackingPaused ? Icons.play_arrow : Icons.pause)
+                    : Icons.play_arrow,
+                color: Colors.white,
+                size: 40,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _svc.removeListener(_onSvc);
+    _ac.dispose();
+    super.dispose();
+  }
+
+  void _onSvc() {
+    setState(() {
+      _trackingActive = _svc.isActive;
+      _trackingPaused = _svc.isPaused;
+    });
   }
 }

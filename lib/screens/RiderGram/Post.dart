@@ -30,27 +30,40 @@ class PostModel {
     this.liked = false,
   });
 
-  factory PostModel.fromJson(Map<String, dynamic> j) => PostModel(
-    id: (j['id'] as num).toInt(),
-    content: (j['content'] ?? '') as String,
-    imageUrl: j['imageUrl'] as String?,
-    location: j['location'] as String?,
-    hashtags: j['hashtags'] as String?,
+  // 안전한 int? 파서
+  static int? _asIntOrNull(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v.trim());
+    return null;
+  }
 
-    // 작성자
-    writerId: (j['writerId'] ?? j['authorId']) == null
-        ? null
-        : (j['writerId'] ?? j['authorId'] as num).toInt(),
-    writer: (j['writer'] ?? j['author'] ?? '익명') as String,
-    writerProfileImage: (j['writerProfileImage'] ??
-        j['writerImage'] ??
-        j['profileImage']) as String?,
+  factory PostModel.fromJson(Map<String, dynamic> j) {
+    final wid = _asIntOrNull(
+      j['writerId'] ?? j['authorId'] ?? j['userId'] ?? j['uid'] ?? j['ownerId'],
+    );
 
-    // 상태
-    likeCount: (j['likeCount'] ?? 0 as num).toInt(),
-    liked: (j['liked'] ?? false) as bool,
-    commentCount: (j['commentCount'] ?? 0 as num).toInt(),
-  );
+    return PostModel(
+      id: (j['id'] as num).toInt(),
+      content: (j['content'] ?? '') as String,
+      imageUrl: j['imageUrl'] as String?,
+      location: j['location'] as String?,
+      hashtags: j['hashtags'] as String?,
+
+      // 작성자
+      writerId: wid,
+      writer: (j['writer'] ?? j['author'] ?? '익명') as String,
+      writerProfileImage: (j['writerProfileImage'] ??
+          j['writerImage'] ??
+          j['profileImage']) as String?,
+
+      // 상태
+      likeCount: (j['likeCount'] ?? 0 as num).toInt(),
+      liked: (j['liked'] ?? false) as bool,
+      commentCount: (j['commentCount'] ?? 0 as num).toInt(),
+    );
+  }
 
   PostModel copyWith({
     int? likeCount,

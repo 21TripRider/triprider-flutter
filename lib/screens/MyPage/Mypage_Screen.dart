@@ -8,7 +8,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
-import 'package:triprider/screens/MyPage/Badge_Style_Screen.dart';
+// ✅ 추가: 총 주행거리 요약을 가져오기 위해 사용
+import 'package:triprider/screens/Map/API/Ride_Api.dart';
+
 import 'package:triprider/screens/MyPage/My_Upload_Screen.dart';
 import 'package:triprider/screens/MyPage/PrivacyPolicyScreen.dart';
 import 'package:triprider/screens/MyPage/Record_Screen.dart';
@@ -32,7 +34,6 @@ void showTripriderPopup(
   final overlay = Overlay.of(context);
   if (overlay == null) return;
 
-  // (참고용) 타입 색상
   Color accent;
   switch (type) {
     case PopupType.success:
@@ -266,6 +267,10 @@ class _MypageScreenState extends State<MypageScreen>
   String _introText = '한줄 소개';
   String? _profileImageUrl;
 
+  // ✅ 바퀴/진행도 계산용
+  static const double _lapKm = 240.0; // 한 바퀴 240km
+  double _totalKm = 0.0;
+
   XFile? _pickedImage;
   bool _loading = true;
 
@@ -274,6 +279,7 @@ class _MypageScreenState extends State<MypageScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadMyPage();
+    _loadRideSummary(); // ✅ 총 주행거리
   }
 
   @override
@@ -286,6 +292,7 @@ class _MypageScreenState extends State<MypageScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _loadMyPage();
+      _loadRideSummary(); // ✅ 복귀 시 갱신
     }
     super.didChangeAppLifecycleState(state);
   }
@@ -307,7 +314,6 @@ class _MypageScreenState extends State<MypageScreen>
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        // 🔔 SnackBar → 커스텀 팝업
         showTripriderPopup(
           context,
           title: '불러오기 실패',
@@ -315,6 +321,20 @@ class _MypageScreenState extends State<MypageScreen>
           type: PopupType.error,
         );
       }
+    }
+  }
+
+  // ✅ Record_Screen과 동일한 서버 요약 사용
+  Future<void> _loadRideSummary() async {
+    try {
+      final s = await RideApi.getSummary();
+      final srvKm = ((s['totalKm'] as num?)?.toDouble() ?? 0.0);
+      if (!mounted) return;
+      setState(() {
+        _totalKm = srvKm;
+      });
+    } catch (_) {
+      // 조용히 무시(오프라인 등). 필요시 로컬 합산까지 넣을 수 있음.
     }
   }
 
@@ -346,7 +366,6 @@ class _MypageScreenState extends State<MypageScreen>
       setState(() {});
       if (!mounted) return;
 
-      // 🔔 SnackBar → 커스텀 팝업
       showTripriderPopup(
         context,
         title: '완료',
@@ -355,7 +374,6 @@ class _MypageScreenState extends State<MypageScreen>
       );
     } catch (e) {
       if (!mounted) return;
-      // 🔔 SnackBar → 커스텀 팝업
       showTripriderPopup(
         context,
         title: '업데이트 실패',
@@ -391,6 +409,8 @@ class _MypageScreenState extends State<MypageScreen>
             MyPage_top(
               imageProvider: _buildProfileImageProvider(),
               intro: _introText,
+              totalKm: _totalKm,     // ✅ 전달
+              lapKm: _lapKm,         // ✅ 240km
             ),
             const SizedBox(height: 16),
             const MyPage_Bottom(),
@@ -441,14 +461,29 @@ class MyPage_AppBar extends StatelessWidget implements PreferredSizeWidget {
 class MyPage_top extends StatelessWidget {
   final ImageProvider<Object> imageProvider;
   final String intro;
+
+  // ✅ 추가: 누적 km & 한바퀴 km
+  final double totalKm;
+  final double lapKm;
+
   const MyPage_top({
     super.key,
     required this.imageProvider,
     required this.intro,
+    required this.totalKm,
+    required this.lapKm,
   });
 
   @override
   Widget build(BuildContext context) {
+    // ----- 진행/표시 값 계산 -----
+    final wheels = (lapKm > 0) ? (totalKm / lapKm) : 0.0;      // 예: 2.3
+    final wheelText = wheels.isFinite ? wheels.toStringAsFixed(1) : '-';
+    final progress = (wheels - wheels.floor()).clamp(0.0, 1.0); // 0~1
+    final remainKm = ((1 - progress) * lapKm).clamp(0.0, lapKm);
+    final nextLap = wheels.floor() + 1;
+    final distText = '${totalKm.toStringAsFixed(0)} km';
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.only(
@@ -482,41 +517,45 @@ class MyPage_top extends StatelessWidget {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('제주도',
+                  children: [
+                    const Text('제주도',
                         style: TextStyle(color: Colors.white, fontSize: 16)),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('2.3',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold)),
-                        SizedBox(width: 4),
-                        Text('바퀴',
+                        Text(
+                          wheelText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text('바퀴',
                             style: TextStyle(color: Colors.white, fontSize: 16)),
-                        Spacer(),
-                        Text('누적거리 507 km',
+                        const Spacer(),
+                        Text('누적거리 $distText',
                             style:
-                            TextStyle(color: Colors.white70, fontSize: 14)),
+                            const TextStyle(color: Colors.white70, fontSize: 14)),
                       ],
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     ClipRRect(
-                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                      borderRadius: const BorderRadius.all(Radius.circular(8)),
                       child: LinearProgressIndicator(
-                        value: 0.77,
+                        value: progress,
                         backgroundColor: Colors.white24,
                         valueColor:
-                        AlwaysStoppedAnimation<Color>(Colors.white),
+                        const AlwaysStoppedAnimation<Color>(Colors.white),
                         minHeight: 6,
                       ),
                     ),
-                    SizedBox(height: 4),
-                    Text('3바퀴까지 153 km 남음',
-                        style:
-                        TextStyle(color: Colors.white70, fontSize: 14)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${nextLap}바퀴까지 ${remainKm.ceil()} km 남음',
+                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
                   ],
                 ),
               ),
@@ -525,47 +564,8 @@ class MyPage_top extends StatelessWidget {
           const SizedBox(height: 20),
           Text(intro,
               style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500)),
-          const SizedBox(height: 20),
+                  color: Colors.black, fontSize: 19, fontWeight: FontWeight.w400)),
 
-          // ⭐ 뱃지 & 칭호 UI 복원
-          Container(
-            padding:
-            const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: const [
-                    Icon(Icons.star, color: Colors.white),
-                    SizedBox(width: 6),
-                    Text('+6',
-                        style: TextStyle(color: Colors.white, fontSize: 18)),
-                    SizedBox(width: 8),
-                    Text('뱃지',
-                        style: TextStyle(color: Colors.white70)),
-                  ],
-                ),
-                const Text('|',
-                    style: TextStyle(fontSize: 25, color: Colors.white)),
-                Row(
-                  children: const [
-                    Text('제주 토박이 +2',
-                        style: TextStyle(color: Colors.white, fontSize: 18)),
-                    SizedBox(width: 8),
-                    Text('칭호',
-                        style: TextStyle(color: Colors.white70)),
-                  ],
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 16),
         ],
       ),
@@ -584,7 +584,6 @@ class MyPage_Bottom extends StatelessWidget {
       children: [
         _buildMenuItem(context, '주행 기록', const RecordScreen()),
         _buildMenuItem(context, '좋아요 누른 코스', const SaveCourseScreen()),
-        _buildMenuItem(context, '뱃지 & 칭호 관리', const BadgeStyleScreen()),
         _buildMenuItem(context, '나의 게시물', const MyUploadScreen()),
         _buildMenuItem(context, '개인정보처리방침', const PrivacyPolicyScreen()),
         _buildMenuItem(context, '이용약관', const TermsOfServiceScreen()),
@@ -605,8 +604,7 @@ class MyPage_Bottom extends StatelessWidget {
       ),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        padding:
-        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -614,9 +612,7 @@ class MyPage_Bottom extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w500)),
+            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
             const Icon(Icons.arrow_forward_ios, size: 18),
           ],
         ),
@@ -701,8 +697,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
           ),
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius:
-            BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: ListView(
             controller: controller,
@@ -731,8 +726,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                               shape: BoxShape.circle,
                             ),
                             alignment: Alignment.center,
-                            child: const Icon(Icons.camera_alt,
-                                size: 18, color: Colors.white),
+                            child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
                           ),
                         ),
                       ),
@@ -742,8 +736,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
               ),
               const SizedBox(height: 16),
               const Text('한줄 소개',
-                  style: TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               TextField(
                 controller: _controller,
@@ -756,8 +749,8 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 12),
+                  contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
               ),
               const SizedBox(height: 12),
@@ -781,9 +774,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                 child: const Text(
                   '저장',
                   style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black),
+                      fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
                 ),
               ),
             ],

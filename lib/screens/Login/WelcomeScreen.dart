@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:triprider/screens/Login/Email_Input_Screen.dart';
 import 'package:triprider/screens/Login/LoginScreen.dart';
 import 'package:triprider/screens/Login/widgets/Login_Screen_Button.dart';
@@ -57,34 +58,50 @@ class _WelcomescreenState extends State<Welcomescreen> {
 }
 
 ///첫 로고 화면
+///첫 로고 화면
+/// 첫 로고 화면 (좌측으로 살짝 시각 보정)
 class TripRider_logo extends StatelessWidget {
   const TripRider_logo({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Container(child: Image.asset('assets/image/logo.png'),width: 250,height: 250,),
-
-        SizedBox(height: 70),
-
-        Container(
-          child: Column(
-            children: [
-              Text(
-                '트립라이더가 처음이신가요?',
-                style: TextStyle(fontSize: 25, fontWeight: FontWeight.w700),
+        Center(
+          child: Transform.translate(
+            // ⬅️ 시각 중심 보정: 필요하면 -6 ~ -16 사이로 미세 조정
+            offset: const Offset(-42, 0),
+            child: SizedBox(
+              width: 380,
+              height: 380,
+              child: SvgPicture.asset(
+                'assets/image/triprider_logo_3D.svg',
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
               ),
-              SizedBox(height: 10),
-              Text('계정이 없으시다면'),
-              Text('앱서비스 이용을 위해 회원가입해주세요'),
-            ],
+            ),
           ),
+        ),
+
+        Column(
+          children: const [
+            Text(
+              '트립라이더가 처음이신가요?',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 25, fontWeight: FontWeight.w700),
+            ),
+            SizedBox(height: 10),
+            Text('계정이 없으시다면', textAlign: TextAlign.center),
+            Text('앱서비스 이용을 위해 회원가입해주세요', textAlign: TextAlign.center),
+          ],
         ),
       ],
     );
   }
 }
+
+
 
 ///로그인 버튼
 class Login_Button extends StatelessWidget {
