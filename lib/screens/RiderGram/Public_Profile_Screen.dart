@@ -173,31 +173,35 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
   // ---- 프로필 로드 ----
   Future<void> _fetchProfile() async {
-    setState(() {
-      _loadingProfile = true;
-      _errorProfile = '';
-    });
+    setState(() { _loadingProfile = true; _errorProfile = ''; });
 
     try {
-      final bool isSelfView = (_userId == null) && (widget.nickname == null || widget.nickname!.isEmpty);
+      // (A) 닉네임만 들어온 화면이면 userId 먼저 확정
+      if (_userId == null && (widget.nickname?.isNotEmpty ?? false)) {
+        try {
+          final uri = ApiClient.publicUri('/api/public/users/by-nickname', {'nickname': widget.nickname!});
+          final res = await ApiClient.get(uri.path, query: uri.queryParameters);
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            final obj = jsonDecode(res.body);
+            if (obj is Map) {
+              final m = obj.cast<String, dynamic>();
+              final idNum = _cleanNum(m['userId']) ?? _cleanNum(m['id']);
+              if (idNum != null) _userId = idNum.toInt();
+              final nick = _cleanString(m['nickname']);
+              if (nick != null && nick.isNotEmpty) _nickname = nick; // 서버 닉네임으로 갱신
+            }
+          }
+        } catch (_) {}
+      }
 
-      // 후보 API URL 리스트 (userId가 있을 경우 먼저 처리)
+      // (B) 실제 프로필은 여기서 가져온다 (public 우선)
       final candidates = <Uri>[
-        if (_userId != null) ApiClient.publicUri('/api/public/users/${_userId}', {}),
-        if (_userId != null) ApiClient.publicUri('/api/users/${_userId}', {}),
-        if (_userId != null) ApiClient.publicUri('/api/users/${_userId}/profile', {}),
-        if (_userId != null) ApiClient.publicUri('/api/users/${_userId}/summary', {}),
-        if (_userId != null) ApiClient.publicUri('/api/public/users/profile', {'userId': '$_userId'}),
+        if (_userId != null) ApiClient.publicUri('/api/public/users/${_userId}'),
         if (_userId != null) ApiClient.publicUri('/api/public/profile', {'userId': '$_userId'}),
-
-        // nickname이 있을 경우 해당 닉네임으로 userId를 먼저 받아온 후, 프로필을 불러오기 위한 추가 API 요청
-        if (widget.nickname != null)
-          ApiClient.publicUri('/api/public/users/by-nickname', {'nickname': widget.nickname!}),
-        if (widget.nickname != null)
+        if (_userId == null && (widget.nickname?.isNotEmpty ?? false))
           ApiClient.publicUri('/api/public/profile', {'nickname': widget.nickname!}),
-
-        // 자기 자신일 경우
-        if (isSelfView) ApiClient.publicUri('/api/mypage', {}),
+        if (_userId == null && (widget.nickname == null || widget.nickname!.isEmpty))
+          ApiClient.publicUri('/api/mypage', {}),
       ];
 
       Map<String, dynamic> data = const {};
@@ -206,68 +210,45 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           final res = await ApiClient.get(uri.path, query: uri.queryParameters);
           if (res.statusCode >= 200 && res.statusCode < 300) {
             final obj = jsonDecode(res.body);
-            if (obj is Map) {
-              data = obj.cast<String, dynamic>();
-              break;
-            } else if (obj is String) {
-              data = {'intro': obj};
-              break;
-            }
+            if (obj is Map) { data = obj.cast<String, dynamic>(); break; }
+            if (obj is String) { data = {'intro': obj}; break; }
           }
         } catch (_) {}
       }
 
-      // ID 도출 (닉네임으로 가져온 응답에서도 추출)
+      // id 재확정(중복 안전)
       final idNum = _firstNonNull<num>(data, ['id','userId','uid','authorId'], _cleanNum)
           ?? _deepGetNum(data, ['id','userId','uid','authorId']);
-      if (idNum != null) {
-        _userId = idNum.toInt();
-      }
+      if (idNum != null) _userId = idNum.toInt();
 
-      // 1차 파싱 (프로필 이미지, 바퀴 수 등)
-      String? imgRaw    = _firstNonNull<String>(data,
-          ['profileImage','profile_image','imageUrl','avatarUrl','photoUrl'], _cleanString);
-      num?    wheelsRaw = _firstNonNull<num>(data,
-          ['wheels','wheel','laps','levelProgress'], _cleanNum);
-      num?    badgesRaw = _firstNonNull<num>(data,
-          ['badgeCount','badges','badgesCount','badgeTotal'], _cleanNum);
-      String? title     = _firstNonNull<String>(data,
-          ['title','titleName','rankName'], _cleanString);
-      num?    titleLv   = _firstNonNull<num>(data,
-          ['titleLevel','rankLevel','grade'], _cleanNum);
-      String? region    = _firstNonNull<String>(data,
-          ['region','location','area'], _cleanString);
-      num?    totalDist = _firstNonNull<num>(data,
-          ['totalKm','totalDistance','distance','distKm'], _cleanNum);
-      String? introRaw  = _firstNonNull<String>(data, [
-        'intro','introduction','bio','about','oneLineIntro','profileIntro',
-      ], _cleanString);
+      // --- 기존 파싱 로직 그대로 ---
+      String? imgRaw    = _firstNonNull<String>(data, ['profileImage','profile_image','imageUrl','avatarUrl','photoUrl'], _cleanString)
+          ?? _deepGetString(data, ['profileImage','profile_image','imageUrl','avatarUrl','photoUrl']);
+      num?    wheelsRaw = _firstNonNull<num>(data, ['wheels','wheel','laps','levelProgress'], _cleanNum)
+          ?? _deepGetNum(data,    ['wheels','wheel','laps','levelProgress']);
+      num?    badgesRaw = _firstNonNull<num>(data, ['badgeCount','badges','badgesCount','badgeTotal'], _cleanNum)
+          ?? _deepGetNum(data,    ['badgeCount','badges','badgesCount','badgeTotal']);
+      String? title     = _firstNonNull<String>(data, ['title','titleName','rankName'], _cleanString)
+          ?? _deepGetString(data, ['title','titleName','rankName']);
+      num?    titleLv   = _firstNonNull<num>(data, ['titleLevel','rankLevel','grade'], _cleanNum)
+          ?? _deepGetNum(data,    ['titleLevel','rankLevel','grade']);
+      String? region    = _firstNonNull<String>(data, ['region','location','area'], _cleanString)
+          ?? _deepGetString(data, ['region','location','area']) ?? '제주도';
+      num?    totalDist = _firstNonNull<num>(data, ['totalKm','totalDistance','distance','distKm'], _cleanNum)
+          ?? _deepGetNum(data,    ['totalKm','totalDistance','distance','distKm']);
+      String? introRaw  = _firstNonNull<String>(data, ['intro','introduction','bio','about','oneLineIntro','profileIntro'], _cleanString)
+          ?? _deepGetString(data, ['intro','introduction','bio','about','oneLineIntro','profileIntro']);
       String? nicknameFromApi = _firstNonNull<String>(data, ['nickname','name','displayName'], _cleanString);
 
-      // 2차 보강 (딥 서치)
-      imgRaw    ??= _deepGetString(data, ['profileImage','profile_image','imageUrl','avatarUrl','photoUrl']);
-      wheelsRaw ??= _deepGetNum(data,    ['wheels','wheel','laps','levelProgress']);
-      badgesRaw ??= _deepGetNum(data,    ['badgeCount','badges','badgesCount','badgeTotal']);
-      title     ??= _deepGetString(data, ['title','titleName','rankName']);
-      titleLv   ??= _deepGetNum(data,    ['titleLevel','rankLevel','grade']);
-      region    ??= _deepGetString(data, ['region','location','area']) ?? '제주도';
-      totalDist ??= _deepGetNum(data,    ['totalKm','totalDistance','distance','distKm']);
-      introRaw  ??= _deepGetString(data, ['intro','introduction','bio','about','oneLineIntro','profileIntro']);
-
-      // wheels 없으면 totalDistance로 추정
-      double? wheels;
-      if (wheelsRaw != null) {
-        wheels = wheelsRaw.toDouble();
-      } else if (totalDist != null) {
-        wheels = totalDist.toDouble() / _lapKm;
-      }
+      double? wheels = (wheelsRaw != null) ? wheelsRaw.toDouble()
+          : (totalDist != null ? totalDist.toDouble() / _lapKm : null);
 
       setState(() {
         _nickname        = nicknameFromApi ?? widget.nickname ?? _nickname;
         _intro           = introRaw;
         _profileImageUrl = _absOrNull(imgRaw);
         _totalDistance   = totalDist;
-        _region          = region ?? '제주도';
+        _region          = region;
         _wheels          = wheels;
         _badgeCount      = badgesRaw?.toInt();
         _titleName       = title;
@@ -275,10 +256,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         _loadingProfile  = false;
       });
     } catch (e) {
-      setState(() {
-        _loadingProfile = false;
-        _errorProfile = '프로필 불러오기 실패: $e';
-      });
+      setState(() { _loadingProfile = false; _errorProfile = '프로필 불러오기 실패: $e'; });
     }
   }
 
@@ -341,24 +319,32 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   // ---- 게시물 로드 (이미지/텍스트 모두) ----
   Future<void> _loadPosts({bool reset = false}) async {
     if (reset) {
-      setState(() { _loadingPosts = true; _page = 0; _hasMore = true; _posts.clear(); });
+      setState(() {
+        _loadingPosts = true;
+        _page = 0;
+        _hasMore = true;
+        _posts.clear();
+      });
     }
     if (!_hasMore) return;
 
     try {
+      final Map<String, String> q = {'page': '$_page', 'size': '$_size'};
       final List<Uri> paths = [
         if (_userId != null)
-          ApiClient.publicUri('/api/public/users/${_userId}/posts', {'page':'$_page','size':'$_size'}),
+          ApiClient.publicUri('/api/public/users/${_userId}/posts', q),
         if (_userId != null)
-          ApiClient.publicUri('/api/posts', {'userId':'$_userId','page':'$_page','size':'$_size'}),
+          ApiClient.publicUri('/api/public/posts', {...q, 'userId': '$_userId'}),
         if (_userId != null)
-          ApiClient.publicUri('/api/public/posts', {'userId':'$_userId','page':'$_page','size':'$_size'}),
+          ApiClient.publicUri('/api/posts/user/${_userId}', q),
         if (_userId != null)
-          ApiClient.publicUri('/api/posts/user/${_userId}', {'page':'$_page','size':'$_size'}),
-        if (widget.nickname != null)
-          ApiClient.publicUri('/api/public/posts/by-nickname', {'nickname':widget.nickname!, 'page':'$_page','size':'$_size'}),
-        if (widget.nickname != null)
-          ApiClient.publicUri('/api/posts', {'nickname':widget.nickname!, 'page':'$_page','size':'$_size'}),
+          ApiClient.publicUri('/api/posts', {...q, 'userId': '$_userId'}),
+        if (widget.nickname != null && widget.nickname!.isNotEmpty)
+          ApiClient.publicUri('/api/public/posts/by-nickname',
+              {'nickname': widget.nickname!, ...q}),
+        if (widget.nickname != null && widget.nickname!.isNotEmpty)
+          ApiClient.publicUri('/api/posts',
+              {'nickname': widget.nickname!, ...q}),
       ];
 
       List rawItems = const [];
@@ -366,33 +352,95 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         try {
           final res = await ApiClient.get(uri.path, query: uri.queryParameters);
           final decoded = jsonDecode(res.body);
-          if (decoded is List) { rawItems = decoded; break; }
+          if (decoded is List) {
+            rawItems = decoded;
+            break;
+          }
           if (decoded is Map) {
-            if (decoded['content'] is List) { rawItems = decoded['content']; break; }
-            if (decoded['data'] is List)    { rawItems = decoded['data']; break; }
-            if (decoded['items'] is List)   { rawItems = decoded['items']; break; }
+            if (decoded['content'] is List) {
+              rawItems = decoded['content'];
+              break;
+            }
+            if (decoded['data'] is List) {
+              rawItems = decoded['data'];
+              break;
+            }
+            if (decoded['items'] is List) {
+              rawItems = decoded['items'];
+              break;
+            }
           }
         } catch (_) {}
       }
 
-      // ✅ 게시물 메타에서 프로필 이미지 폴백(처음 한번만)
+      // ------------------------------
+      // ★ 클라이언트 측 안전 필터링
+      // ------------------------------
+      final int? targetId = _userId;
+      // 닉네임은 라우팅으로 받은 값 우선, 없으면 API에서 채워진 _nickname 사용
+      final String? targetNick = (widget.nickname?.isNotEmpty ?? false)
+          ? widget.nickname
+          : (_nickname.isNotEmpty ? _nickname : null);
+
+      if (rawItems.isNotEmpty && (targetId != null || (targetNick != null && targetNick.isNotEmpty))) {
+        rawItems = rawItems.where((e) {
+          if (e is! Map) return false;
+          final m = e.cast<String, dynamic>();
+
+          final uid = _cleanNum(m['userId']) ??
+              _cleanNum(m['authorId']) ??
+              _cleanNum(m['writerId']);
+
+          if (targetId != null && uid != null) {
+            return uid.toInt() == targetId;
+          }
+
+          final wn = _cleanString(m['writer']) ??
+              _cleanString(m['nickname']) ??
+              _cleanString(m['author']);
+
+          if (targetNick != null && wn != null) {
+            return wn == targetNick;
+          }
+
+          return false; // 기준 못 찾으면 섞이지 않도록 제외
+        }).toList();
+      }
+
+      // ----------------------------------------
+      // ★ 프로필 이미지 폴백: 소유 게시물일 때만 반영
+      // ----------------------------------------
       if (_profileImageUrl == null && rawItems.isNotEmpty) {
         try {
           final first = (rawItems.first as Map).cast<String, dynamic>();
-          final writerImg = _cleanString(
-            first['writerProfileImage'] ??
-                first['profileImage'] ??
-                first['writerImage'] ??
-                first['authorImage'],
-          );
-          final abs = _absOrNull(writerImg);
-          if (abs != null && abs.isNotEmpty) {
-            setState(() => _profileImageUrl = abs);
+
+          final uid = _cleanNum(first['userId']) ??
+              _cleanNum(first['authorId']) ??
+              _cleanNum(first['writerId']);
+          final wn = _cleanString(first['writer']) ??
+              _cleanString(first['nickname']) ??
+              _cleanString(first['author']);
+
+          final isOwner = (targetId != null && uid != null && uid.toInt() == targetId) ||
+              (targetNick != null && wn != null && wn == targetNick);
+
+          if (isOwner) {
+            final writerImg = _cleanString(
+              first['writerProfileImage'] ??
+                  first['profileImage'] ??
+                  first['writerImage'] ??
+                  first['authorImage'],
+            );
+            final abs = _absOrNull(writerImg);
+            if (abs != null && abs.isNotEmpty) {
+              setState(() => _profileImageUrl = abs);
+            }
           }
         } catch (_) {}
       }
 
-      final fetched = rawItems.map((e) {
+      // 매핑
+      final fetched = rawItems.map<_PostThumb>((e) {
         final m = (e as Map).cast<String, dynamic>();
         return _PostThumb.fromJson(m, _absOrNull);
       }).toList();
@@ -400,11 +448,14 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       setState(() {
         _posts.addAll(fetched);
         _loadingPosts = false;
-        _hasMore = fetched.length >= _size;
+        _hasMore = fetched.length >= _size && rawItems.isNotEmpty;
         if (_hasMore) _page += 1;
       });
     } catch (e) {
-      setState(() { _loadingPosts = false; _hasMore = false; });
+      setState(() {
+        _loadingPosts = false;
+        _hasMore = false;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('게시물 불러오기 실패: $e')),
@@ -412,6 +463,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       }
     }
   }
+
 
   void _onScroll() {
     if (!_hasMore || _loadingPosts) return;
@@ -439,7 +491,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
               pinned: false,
               floating: false,
               snap: false,
-              expandedHeight: 360,
+              expandedHeight: 300,
               backgroundColor: Colors.transparent,
               leadingWidth: 48,
               leading: Padding(
@@ -645,47 +697,6 @@ class _HeaderGradientCard extends StatelessWidget {
           Text(
             (intro != null && intro!.trim().isNotEmpty) ? intro!.trim() : '소개가 없습니다.',
             style: const TextStyle(color: Colors.black, fontSize: 15, fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(height: 16),
-
-          // 뱃지/칭호 알약
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: Row(
-              children: [
-                // 왼쪽: 뱃지 스트립
-                Expanded(
-                  child: _BadgeStripMini(count: badgeCount ?? 0),
-                ),
-
-                // 구분선
-                const SizedBox(width: 12),
-                const Text('|', style: TextStyle(fontSize: 20, color: Colors.white)),
-                const SizedBox(width: 12),
-
-                // 오른쪽: 칭호
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        (titleName != null && titleName!.isNotEmpty)
-                            ? '${titleName!} +${titleLevel ?? 0}'
-                            : '칭호 없음',
-                        style: const TextStyle(color: Colors.white, fontSize: 18),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(width: 6),
-                      const Text('칭호', style: TextStyle(color: Colors.white70)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),

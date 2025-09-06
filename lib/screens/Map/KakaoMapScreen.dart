@@ -9,14 +9,11 @@ import 'dart:io';
 import 'package:triprider/controllers/map_controller.dart';
 import 'package:triprider/data/kakao_local_api.dart';
 import 'package:triprider/screens/Map/Rider_Tracking_Screen.dart';
-// import 'package:triprider/screens/Map/API/Ride_Api.dart';
-
 import 'package:triprider/state/map_view_model.dart';
 import 'package:triprider/state/rider_tracker_service.dart';
 import 'package:triprider/utils/kakao_map_channel.dart';
 import 'package:triprider/widgets/Bottom_App_Bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:url_launcher/url_launcher.dart';
 
 /// =======================
@@ -146,7 +143,7 @@ void showTripriderPopup(
 
 class KakaoMapScreen extends StatefulWidget {
   const KakaoMapScreen({super.key, this.overlayFromTracking = false});
-  final bool overlayFromTracking; // 트래킹 화면 위에 얹혀진 맵인지 여부
+  final bool overlayFromTracking;
 
   @override
   State<KakaoMapScreen> createState() => _KakaoMapScreenState();
@@ -162,18 +159,13 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
   final int _zoomLevel = 16;
   String? _warning;
 
-  // Tracking state (별도 RideTrackingScreen으로 이동)
-  bool _tracking = false; // HUD/버튼 색상 등 과거 용도, 현재는 사용 안 함
-  StreamSubscription<Position>? _posSub; // 사용자 위치 아이콘 업데이트만 유지
+  bool _tracking = false;
+  StreamSubscription<Position>? _posSub;
   StreamSubscription<Position>? _userPosSub;
   int _lastRenderedPointCount = 0;
 
-  // 저장 연타 방지 (사용 안 함)
-  // bool _savingRide = false;
-
-  // POI/라벨 관련
   bool _loadingPois = false;
-  String _activeFilter = 'none'; // none | gas | moto
+  String _activeFilter = 'none';
   List<Map<String, dynamic>> _pois = <Map<String, dynamic>>[];
   final Map<int, Map<String, dynamic>> _labelById = <int, Map<String, dynamic>>{};
   int _lastIdleZoom = 16;
@@ -183,10 +175,8 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
   bool _suppressPoiOnce = false;
 
   static const String _kakaoRestApiKey = '471ee3eec0b9d8a5fc4eb86fb849e524';
-  // Google Static Map API (Static Map에만 사용)
   static const String _googleStaticApiKey = 'AIzaSyA53fiKudkjSzIee7zn-gebXgJuWNuF4lc';
 
-  // ViewModel/Controller
   late final KakaoLocalApi _api = KakaoLocalApi(_kakaoRestApiKey);
   late final MapController _mapController = MapController(_channel);
   late final MapViewModel _vm = MapViewModel(api: _api, controller: _mapController);
@@ -196,8 +186,6 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     super.initState();
     _initLocation();
   }
-
-  // ======================= 공통 유틸 =======================
 
   List<Map<String, dynamic>> _withDistance(
       double lat, double lon, List<Map<String, dynamic>> items) {
@@ -226,13 +214,11 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     return out;
   }
 
-  // ======================= POI/필터 UI =======================
-
+  /// ======================= POI/필터 버튼 =======================
   Widget _filterButton({required String label, required String value}) {
     final active = _activeFilter == value;
     return GestureDetector(
       onTap: () async {
-        // 토글
         final willDeactivate = _activeFilter == value;
         if (willDeactivate) {
           setState(() {
@@ -264,23 +250,25 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 15),
         decoration: BoxDecoration(
-          color: active ? Colors.blue : Colors.white,
-          border: Border.all(
-              color: active ? Colors.blue : Colors.grey.shade300),
+          color: active ? Colors.pinkAccent : Color(0xD7FFFFFF),
+          border: Border.all(width: 2, color: active ? Colors.white : Colors.pinkAccent),
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Text(label,
-            style: TextStyle(color: active ? Colors.white : Colors.black)),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? Colors.white : Colors.black,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
 
-  // ======================= 위치 초기화 =======================
-
   Future<void> _initLocation() async {
-    // 기본 좌표(제주공항)로 먼저 렌더
     setState(() {
       _lat = 33.510414;
       _lon = 126.491353;
@@ -346,24 +334,35 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     }
   }
 
-  // ======================= 빌드 =======================
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _buildBody(),
       floatingActionButton: (_lat != null && _lon != null)
-          ? FloatingActionButton(
-        heroTag: 'recenter',
-        onPressed: () async {
-          try {
-            _suppressPoiOnce = true;
-            await _channel.animateCamera(
-                lat: _lat!, lon: _lon!, zoomLevel: _zoomLevel, durationMs: 300);
-            await _channel.setUserLocation(lat: _lat!, lon: _lon!);
-          } catch (_) {}
-        },
-        child: const Icon(Icons.my_location),
+          ? Padding(
+        padding: const EdgeInsets.only(bottom: 45, right: 50),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () async {
+            try {
+              _suppressPoiOnce = true;
+              await _channel.animateCamera(
+                  lat: _lat!, lon: _lon!, zoomLevel: _zoomLevel, durationMs: 300);
+              await _channel.setUserLocation(lat: _lat!, lon: _lon!);
+            } catch (_) {}
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+            decoration: BoxDecoration(
+              color: const Color(0xB3F5F5F5),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
+              ],
+            ),
+            child: const Icon(Icons.gps_fixed, color: Colors.black, size: 28),
+          ),
+        ),
       )
           : null,
       bottomNavigationBar: const BottomAppBarWidget(),
@@ -393,36 +392,35 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
               ),
             ),
           ),
-        // 주행 HUD는 별도 화면에서 표시 (기존 HUD 제거)
-        // 상단 필터
+        /// 상단 필터 버튼
         Positioned(
-          top: safeTop + 44,
-          left: 16,
-          right: 16,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          top: safeTop + 15,
+          left: 0,
+          right: 0,
+          child: Center(
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 _filterButton(label: '주유소', value: 'gas'),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 _filterButton(label: '오토바이', value: 'moto'),
               ],
             ),
           ),
         ),
-        // 하단 POI 패널
+        /// 하단 POI 패널
         if (_pois.isNotEmpty)
           Positioned(
             left: 0,
             right: 0,
-            bottom: 24 + kBottomNavigationBarHeight + safeBottom,
+            bottom: 80 + kBottomNavigationBarHeight + safeBottom,
             child: Container(
               height: 220,
               margin: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                boxShadow: [BoxShadow(color: Colors.pinkAccent, blurRadius: 8)],
               ),
               child: ListView.separated(
                 padding: const EdgeInsets.all(12),
@@ -433,11 +431,28 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
                   final name = (m['name'] as String?) ?? '-';
                   final dist = (m['distance'] as double?) ?? 0.0;
                   return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     dense: true,
-                    title: Text(name,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle:
-                    dist > 0 ? Text('${(dist / 1000).toStringAsFixed(2)} km') : null,
+                    leading: Icon(
+                      _activeFilter == 'moto'
+                          ? Icons.motorcycle_sharp
+                          : Icons.local_gas_station,
+                      color: _activeFilter == 'moto' ? Colors.pinkAccent : Colors.redAccent,
+                    ),
+                    title: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    subtitle: dist > 0
+                        ? Text('${(dist / 1000).toStringAsFixed(2)} km',
+                        style: const TextStyle(color: Colors.grey, fontSize: 13))
+                        : null,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: const BorderSide(color: Color(0xFFE0E0E0)),
+                    ),
                     onTap: () async {
                       final lat = (m['lat'] as num).toDouble();
                       final lon = (m['lon'] as num).toDouble();
@@ -466,11 +481,11 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
               ),
             ),
           ),
-        // 하단 중앙 버튼
+        /// 하단 중앙 버튼
         Positioned(
           left: 0,
           right: 0,
-          bottom: 24 + kBottomNavigationBarHeight,
+          bottom: 0 + kBottomNavigationBarHeight + 1,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -483,21 +498,16 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
   }
 
   void _onPlayPressed() async {
-    // 서비스 상태 복원 후 동작 결정
     final svc = RideTrackerService.instance;
     await svc.tryRestore();
     if (svc.isActive) {
-      // 트래킹 화면 위에 얹힌 맵이면 현재 맵을 닫아 기존 트래킹 화면으로 복귀
       if (widget.overlayFromTracking) {
         if (mounted) Navigator.of(context).pop();
         return;
       }
-      // 일반 맵에서라도 기존 트래킹이 있다면 새로 만들지 말고 같은 트래킹 화면을 맨 위로
-      // (간단 처리: 동일 화면을 push 하지 않고 그대로 재사용하도록 pop-if-possible)
       _openRideTrackingScreen();
       return;
     }
-    // 세션이 없으면 새로 시작
     await svc.start();
     _openRideTrackingScreen();
   }
@@ -523,12 +533,6 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     }
   }
 
-  // 기존 HUD 제거됨
-
-  // 트래킹 로직은 전부 RideTrackingScreen에서만 동작합니다
-
-  // 과거 트래킹 종료 로직은 RideTrackingScreen으로 이관됨
-
   void _startUserLocationUpdates() {
     _userPosSub?.cancel();
     _userPosSub = Geolocator.getPositionStream(
@@ -542,8 +546,6 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
       } catch (_) {}
     });
   }
-
-  // ======================= 플랫폼 뷰/콜백 =======================
 
   Widget _buildPlatformView(double lat, double lon) {
     final creationParams = <String, dynamic>{
@@ -588,8 +590,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
           showModalBottomSheet(
             context: context,
             shape: const RoundedRectangleBorder(
-                borderRadius:
-                BorderRadius.vertical(top: Radius.circular(16))),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
             builder: (_) => Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -694,15 +695,12 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     }();
   }
 
-  // Static Map 생성 로직 제거됨(주행 종료 로직 이관)
-
   @override
   void dispose() {
     _posSub?.cancel();
     _userPosSub?.cancel();
     super.dispose();
   }
-
 }
 
 class _TrackingPlayButton extends StatefulWidget {
@@ -740,7 +738,6 @@ class _TrackingPlayButtonState extends State<_TrackingPlayButton>
 
   @override
   Widget build(BuildContext context) {
-    // 애니메이션 on/off 제어
     if (_trackingActive) {
       if (!_ac.isAnimating) _ac.repeat();
     } else {
@@ -754,7 +751,6 @@ class _TrackingPlayButtonState extends State<_TrackingPlayButton>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // 회전하는 스트로크(주행중일 때만)
             if (_trackingActive)
               RotationTransition(
                 turns: _ac,
