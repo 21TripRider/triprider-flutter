@@ -44,7 +44,7 @@ class _SocialNicknameState extends State<SocialNickname> {
       final jwt = prefs.getString('jwt') ?? '';
 
       final res = await http.patch(
-        Uri.parse('http://10.0.2.2:8080/api/users/me/nickname'),
+        Uri.parse('https://trip-rider.com/api/users/me/nickname'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $jwt',
