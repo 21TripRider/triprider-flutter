@@ -138,7 +138,7 @@ class _LoginscreenState extends State<Loginscreen> {
 
     try {
       final res = await http.post(
-        Uri.parse('http://10.0.2.2:8080/api/auth/login'),
+        Uri.parse('https://trip-rider.com/api/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
       );
@@ -188,7 +188,7 @@ class _LoginscreenState extends State<Loginscreen> {
       }
 
       final res = await http.post(
-        Uri.parse('http://10.0.2.2:8080/api/auth/kakao'),
+        Uri.parse('https://trip-rider.com/api/auth/kakao'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'accessToken': accessToken}),
       );
@@ -222,7 +222,7 @@ class _LoginscreenState extends State<Loginscreen> {
       }
 
       final res = await http.post(
-        Uri.parse('http://10.0.2.2:8080/api/auth/google'),
+        Uri.parse('https://trip-rider.com/api/auth/google'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'accessToken': accessToken}),
       );
