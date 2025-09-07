@@ -6,10 +6,10 @@ import 'package:triprider/screens/Home/Weather/WeatherResponse.dart';
 
 class WeatherApi {
   static String get _baseUrl {
-    if (kIsWeb) return 'http://localhost:8080';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8080';
-    if (Platform.isIOS) return 'http://127.0.0.1:8080';
-    return 'http://localhost:8080';
+    if (kIsWeb) return 'https://trip-rider.com';
+    if (Platform.isAndroid) return 'https://trip-rider.com';
+    if (Platform.isIOS) return 'https://trip-rider.com';
+    return 'https://trip-rider.com';
   }
 
   Future<WeatherResponse> fetchJeju() async {
