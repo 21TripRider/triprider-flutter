@@ -136,7 +136,7 @@ class LogoutScreen extends StatelessWidget {
     try {
       if (token != null && token.isNotEmpty) {
         final res = await http.post(
-          Uri.parse("http://10.0.2.2:8080/api/auth/logout"),
+          Uri.parse("https://trip-rider.com/api/auth/logout"),
           headers: {"Authorization": "Bearer $token"},
         );
 
