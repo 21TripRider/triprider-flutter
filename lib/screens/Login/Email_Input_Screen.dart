@@ -33,7 +33,7 @@ class _EmailInputScreenState extends State<EmailInputScreen> {
   // ✅ 추가: 이메일 중복 체크 (중복이면 true, 사용 가능이면 false, 판단 불가면 null)
   Future<bool?> _isEmailDuplicate(String email) async {
     try {
-      final url = Uri.parse('http://10.0.2.2:8080/api/auth/check-email?email=$email');
+      final url = Uri.parse('https://trip-rider.com/api/auth/check-email?email=$email');
       final res = await http.get(url);
 
       if (res.statusCode == 200) {
