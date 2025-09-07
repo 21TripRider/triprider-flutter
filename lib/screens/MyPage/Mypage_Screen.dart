@@ -150,8 +150,8 @@ void showTripriderPopup(
 
 // 플랫폼별 로컬 서버 접근 주소 자동 선택
 final String kApiBase = (() {
-  if (Platform.isIOS) return 'http://127.0.0.1:8080';
-  return 'http://10.0.2.2:8080';
+  if (Platform.isIOS) return 'https://trip-rider.com';
+  return 'https://trip-rider.com';
 })();
 
 Future<String?> _getJwt() async {
