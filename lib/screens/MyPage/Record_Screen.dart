@@ -1,4 +1,5 @@
 // lib/screens/MyPage/Record_Screen.dart
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -58,8 +59,7 @@ class _RecordScreenState extends State<RecordScreen> {
           'id': r['id'],
           'startedAt': r['startedAt'],
           'endedAt': r['finishedAt'],
-          'elapsedSeconds':
-          r['movingSeconds'] ?? r['elapsedSeconds'],
+          'elapsedSeconds': r['movingSeconds'] ?? r['elapsedSeconds'],
           'distanceMeters':
           ((r['totalKm'] as num?)?.toDouble() ?? 0.0) * 1000.0,
           'avgSpeedKmh':
@@ -173,8 +173,8 @@ class _RecordScreenState extends State<RecordScreen> {
           icon: const Icon(Icons.arrow_back_ios_new, size: 28),
         ),
         centerTitle: true,
-        title: const Text('주행 기록',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title:
+        const Text('주행 기록', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: RefreshIndicator(
         onRefresh: _refreshRecords,
@@ -188,8 +188,8 @@ class _RecordScreenState extends State<RecordScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('누적 주행거리',
-                      style:
-                      TextStyle(fontSize: 25, fontWeight: FontWeight.w500)),
+                      style: TextStyle(
+                          fontSize: 25, fontWeight: FontWeight.w500)),
                   Text('${_totalKm.toStringAsFixed(1)} km',
                       style: const TextStyle(
                           fontSize: 40, fontWeight: FontWeight.bold)),
@@ -333,6 +333,42 @@ class _RecordScreenState extends State<RecordScreen> {
     );
   }
 
+  /// ---- 이미지/경로 비율 유틸 ----
+
+  Future<double?> _imageAspectRatioFromProvider(ImageProvider provider) async {
+    final completer = Completer<double?>();
+    final stream = provider.resolve(const ImageConfiguration());
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener((ImageInfo info, bool _) {
+      completer.complete(info.image.width / info.image.height);
+      stream.removeListener(listener);
+    }, onError: (e, st) {
+      completer.complete(null);
+      stream.removeListener(listener);
+    });
+    stream.addListener(listener);
+    return completer.future;
+  }
+
+  double _pathAspectRatio(List<Map<String, dynamic>> path) {
+    if (path.isEmpty) return 4 / 3;
+    double minLat = double.infinity, maxLat = -double.infinity;
+    double minLon = double.infinity, maxLon = -double.infinity;
+    for (final p in path) {
+      final lat = (p['lat'] as num).toDouble();
+      final lon = (p['lon'] as num).toDouble();
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+    }
+    final latSpan = (maxLat - minLat).abs().clamp(1e-6, 1.0);
+    final lonSpan = (maxLon - minLon).abs().clamp(1e-6, 1.0);
+    final ar = lonSpan / latSpan; // width / height
+    if (ar.isNaN || ar.isInfinite || ar <= 0) return 4 / 3;
+    return ar;
+  }
+
   /// 서버 상대경로도 네트워크로 처리 + 실패 시 폴리라인 폴백
   Widget _buildThumb({
     required String? imagePath,
@@ -340,43 +376,67 @@ class _RecordScreenState extends State<RecordScreen> {
   }) {
     final networkUrl = _resolveRemoteUrl(imagePath);
     if (networkUrl != null) {
-      return AspectRatio(
-        aspectRatio: 4 / 3,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            networkUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) {
-              if (routePath != null && routePath.isNotEmpty) {
-                return CustomPaint(
-                  painter: _RouteThumbPainter(routePath),
-                  child: Container(color: Colors.white),
-                );
-              }
-              return Container(color: Colors.black12);
-            },
-          ),
-        ),
+      final provider = NetworkImage(networkUrl);
+      return FutureBuilder<double?>(
+        future: _imageAspectRatioFromProvider(provider),
+        builder: (ctx, snap) {
+          final ar = (snap.data != null && (snap.data!) > 0) ? snap.data! : 4 / 3;
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: AspectRatio(
+              aspectRatio: ar!,
+              child: Image(
+                image: provider,
+                fit: BoxFit.contain, // 비율 동일 → 여백 최소, 크롭 없음
+                alignment: Alignment.center,
+                errorBuilder: (_, __, ___) {
+                  if (routePath != null && routePath.isNotEmpty) {
+                    final par = _pathAspectRatio(routePath);
+                    return AspectRatio(
+                      aspectRatio: par,
+                      child: CustomPaint(
+                        painter: _RouteThumbPainter(routePath),
+                        child: Container(color: Colors.white),
+                      ),
+                    );
+                  }
+                  return Container(color: Colors.black12);
+                },
+              ),
+            ),
+          );
+        },
       );
     }
 
     final local = _resolveLocalFile(imagePath);
     if (local != null && local.existsSync()) {
-      return AspectRatio(
-        aspectRatio: 4 / 3,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.file(local, fit: BoxFit.cover),
-        ),
+      final provider = FileImage(local);
+      return FutureBuilder<double?>(
+        future: _imageAspectRatioFromProvider(provider),
+        builder: (ctx, snap) {
+          final ar = (snap.data != null && (snap.data!) > 0) ? snap.data! : 4 / 3;
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: AspectRatio(
+              aspectRatio: ar!,
+              child: Image(
+                image: provider,
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+              ),
+            ),
+          );
+        },
       );
     }
 
     if (routePath != null && routePath.isNotEmpty) {
-      return AspectRatio(
-        aspectRatio: 4 / 3,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+      final par = _pathAspectRatio(routePath);
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: AspectRatio(
+          aspectRatio: par,
           child: CustomPaint(
             painter: _RouteThumbPainter(routePath),
             child: Container(color: Colors.white),
@@ -412,8 +472,7 @@ class _RecordScreenState extends State<RecordScreen> {
           (s.contains('://localhost') ||
               s.contains('://127.0.0.1') ||
               s.contains('://0.0.0.0'))) {
-        s = s.replaceFirst(
-            RegExp(r'://(localhost|127\.0\.0\.1|0\.0\.0\.0)'),
+        s = s.replaceFirst(RegExp(r'://(localhost|127\.0\.0\.1|0\.0\.0\.0)'),
             '://10.0.2.2');
       }
       return s;
@@ -464,7 +523,7 @@ class _RouteThumbPainter extends CustomPainter {
     }
     final latSpan = (maxLat - minLat).abs().clamp(1e-6, 1.0);
     final lonSpan = (maxLon - minLon).abs().clamp(1e-6, 1.0);
-    const pad = 12.0;
+    const pad = 12.0; // 폴리라인은 가독성을 위해 약간의 여백 유지
     final w = size.width - pad * 2;
     final h = size.height - pad * 2;
 
