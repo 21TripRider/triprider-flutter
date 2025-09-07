@@ -464,21 +464,16 @@ class _RecordScreenState extends State<RecordScreen> {
     if (s.isEmpty) return null;
 
     if (s.startsWith('/uploads/') || s.startsWith('uploads/')) {
-      s = ApiClient.absoluteUrl(s);
+      // 운영 서버에 맞춰 절대경로 변환
+      s = "https://trip-rider.com$s";
     }
 
     if (s.startsWith('http://') || s.startsWith('https://')) {
-      if (Platform.isAndroid &&
-          (s.contains('://localhost') ||
-              s.contains('://127.0.0.1') ||
-              s.contains('://0.0.0.0'))) {
-        s = s.replaceFirst(RegExp(r'://(localhost|127\.0\.0\.1|0\.0\.0\.0)'),
-            '://10.0.2.2');
-      }
-      return s;
+      return s; // 그대로 반환 (운영 서버는 https://trip-rider.com 이니까 변환 필요 없음)
     }
     return null;
   }
+
 
   /// 로컬 파일 경로 정규화
   File? _resolveLocalFile(String? raw) {
