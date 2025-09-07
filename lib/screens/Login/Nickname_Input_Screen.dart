@@ -11,7 +11,7 @@ Future<bool> registerUser(
     String password,
     String nickname,
     ) async {
-  final url = Uri.parse('http://10.0.2.2:8080/api/auth/signup');
+  final url = Uri.parse('https://trip-rider.com/api/auth/signup');
   final res = await http.post(
     url,
     headers: {'Content-Type': 'application/json'},
