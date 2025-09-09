@@ -57,11 +57,8 @@ class KakaoMapPlatform(
     private var polyline: Any? = null // hold shape polyline handle if available
     private val appContext: Context = context
 
-    private var labelStyles: LabelStyles? = null
-    private var userLabelStyles: LabelStyles? = null
     private var prevCameraPos: CameraPosition? = null
     private var currentZoom: Int = 16
-    private var userLabelId: Int = 999999
 
     // ▼▼▼ [추가] 리스트 탭용 "마커 라벨" 관리 전용 상태 ▼▼▼
     private val markerLabels: MutableList<com.kakao.vectormap.label.Label> = mutableListOf()
@@ -89,23 +86,6 @@ class KakaoMapPlatform(
             override fun onMapReady(map: KakaoMap) {
                 kakaoMap = map
 
-                // 텍스트 전용 라벨 스타일 (아이콘 리소스 없이)
-                labelStyles = kakaoMap!!.labelManager!!.addLabelStyles(
-                    LabelStyles.from(
-                        LabelStyle.from()
-                            .setTextStyles(dpToPx(28), 0xFF1976D2.toInt())
-                            .setApplyDpScale(false)
-                    )
-                )
-
-                // 사용자 위치 전용 스타일
-                userLabelStyles = kakaoMap!!.labelManager!!.addLabelStyles(
-                    LabelStyles.from(
-                        LabelStyle.from()
-                            .setTextStyles(dpToPx(28), 0xFF2962FF.toInt())
-                            .setApplyDpScale(false)
-                    )
-                )
 
                 // ▼▼▼ [추가] 마커 색상별 스타일 미리 준비 ▼▼▼
                 markerStyleBlue = kakaoMap!!.labelManager!!.addLabelStyles(
@@ -214,23 +194,6 @@ class KakaoMapPlatform(
         animator.start()
     }
 
-    private fun addSpotLabel(name: String, lat: Double, lng: Double, id: Int) {
-        val base = LabelOptions.from(LatLng.from(lat, lng))
-            .setClickable(true)
-            .setTag(id)
-        if (id == userLabelId) {
-            base.setStyles(userLabelStyles)
-            base.setTexts(LabelTextBuilder().setTexts("●"))
-        } else {
-            base.setStyles(labelStyles)
-            // 가게 라벨은 텍스트 없이 아이콘처럼 (스타일만 적용)
-        }
-        kakaoMap?.labelManager?.layer?.addLabel(base)
-    }
-
-    private fun removeAllSpotLabel() {
-        kakaoMap?.labelManager?.layer?.removeAll()
-    }
 
     // ▼▼▼ [추가] 리스트 탭용 마커(라벨) 유틸 ▼▼▼
     private fun styleForColor(name: String?): LabelStyles? = when (name?.lowercase()) {
@@ -348,42 +311,6 @@ class KakaoMapPlatform(
                     }
                 }
             }
-            "addSpotLabel" -> {
-                val lat = call.argument<Double>("lat")
-                val lon = call.argument<Double>("lon")
-                val name = call.argument<String>("name")
-                val id = call.argument<Int>("id")
-                try {
-                    addSpotLabel(name!!, lat!!, lon!!, id!!)
-                    result.success(null)
-                } catch (e: Exception) {
-                    result.error("110", "METHOD ERROR", "add spot label error occur")
-                }
-            }
-            "removeAllSpotLabel" -> {
-                removeAllSpotLabel()
-                result.success(null)
-            }
-            "setLabels" -> {
-                val data = call.argument<List<Map<String, Any>>>("labels")
-                if (data == null) {
-                    result.error("121", "METHOD ERROR", "data null error occur")
-                    return
-                }
-                try {
-                    removeAllSpotLabel()
-                    data.forEach { item ->
-                        val name = item["name"] as? String ?: "Unknown"
-                        val lon = (item["lon"] as? Number)?.toDouble() ?: 0.0
-                        val lat = (item["lat"] as? Number)?.toDouble() ?: 0.0
-                        val id = (item["id"] as? Number)?.toInt() ?: 0
-                        addSpotLabel(name, lat, lon, id)
-                    }
-                    result.success(null)
-                } catch (e: Exception) {
-                    result.error("120", "METHOD ERROR", "setLabels error occur")
-                }
-            }
             "updatePolyline" -> {
                 val pts = call.argument<List<Map<String, Any>>>("points")
                 if (pts == null) {
@@ -452,7 +379,7 @@ class KakaoMapPlatform(
                 val lon = call.argument<Double>("lon")
                 try {
                     if (lat != null && lon != null) {
-                        addSpotLabel("", lat, lon, userLabelId)
+                        // 사용자 위치는 Dart 쪽에서 처리하므로 여기서는 아무것도 하지 않음
                     }
                     result.success(null)
                 } catch (e: Exception) {

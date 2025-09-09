@@ -16,11 +16,16 @@ class RecordScreen extends StatefulWidget {
   State<RecordScreen> createState() => _RecordScreenState();
 }
 
+enum _DateFilter { week, month, year, all }
+
 class _RecordScreenState extends State<RecordScreen> {
   List<Map<String, dynamic>> _records = [];
   double _totalKm = 0.0;
   int _totalSeconds = 0;
   bool _usedServerSummary = false;
+
+  // ✅ 추가: 목록에만 적용할 날짜 필터 상태
+  _DateFilter _filter = _DateFilter.all;
 
   @override
   void initState() {
@@ -161,6 +166,38 @@ class _RecordScreenState extends State<RecordScreen> {
     return byKey.values.toList();
   }
 
+  // ====== ✅ 목록용 기간 필터 로직 ======
+  List<Map<String, dynamic>> get _visibleRecords {
+    if (_filter == _DateFilter.all) return _records;
+    final now = DateTime.now();
+    late DateTime cutoff;
+
+    switch (_filter) {
+      case _DateFilter.week:
+        cutoff = now.subtract(const Duration(days: 7));
+        break;
+      case _DateFilter.month:
+        cutoff = now.subtract(const Duration(days: 30));
+        break;
+      case _DateFilter.year:
+        cutoff = now.subtract(const Duration(days: 365));
+        break;
+      case _DateFilter.all:
+        cutoff = DateTime.fromMillisecondsSinceEpoch(0);
+        break;
+    }
+
+    bool inRange(Map<String, dynamic> r) {
+      final ended =
+          DateTime.tryParse(r['endedAt'] ?? '') ??
+              DateTime.tryParse(r['startedAt'] ?? '');
+      if (ended == null) return false;
+      return !ended.isBefore(cutoff);
+    }
+
+    return _records.where(inRange).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final totalTime = _formatHms(_totalSeconds);
@@ -181,6 +218,7 @@ class _RecordScreenState extends State<RecordScreen> {
         child: ListView(
           padding: const EdgeInsets.all(25),
           children: [
+            // ── 상단 요약 ───────────────────────────────────────────
             SizedBox(
               height: 170,
               child: Column(
@@ -188,8 +226,8 @@ class _RecordScreenState extends State<RecordScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('누적 주행거리',
-                      style: TextStyle(
-                          fontSize: 25, fontWeight: FontWeight.w500)),
+                      style:
+                      TextStyle(fontSize: 25, fontWeight: FontWeight.w500)),
                   Text('${_totalKm.toStringAsFixed(1)} km',
                       style: const TextStyle(
                           fontSize: 40, fontWeight: FontWeight.bold)),
@@ -205,26 +243,34 @@ class _RecordScreenState extends State<RecordScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 30),
 
-            if (_records.isEmpty)
+            const SizedBox(height: 16),
+
+            // ── ✅ 기간 필터: 주 · 월 · 년 · 전체 (카드 목록만 필터) ─────────────
+            _buildDateFilterRow(),
+
+            const SizedBox(height: 20),
+
+            // ── 카드 목록 ──────────────────────────────────────────
+            if (_visibleRecords.isEmpty)
               Center(
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 60),
-                  child: Text('아직 저장된 주행 기록이 없습니다.',
-                      style: TextStyle(color: Colors.grey.shade600)),
+                  padding: const EdgeInsets.only(top: 40),
+                  child: Text(
+                    '해당 기간의 주행 기록이 없습니다.',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
                 ),
               )
             else
-              ..._records.map((r) {
+              ..._visibleRecords.map((r) {
                 final startedAt =
                     DateTime.tryParse(r['startedAt'] ?? '') ??
                         DateTime.now();
                 final date =
                     '${startedAt.year}.${startedAt.month.toString().padLeft(2, '0')}.${startedAt.day.toString().padLeft(2, '0')}';
                 final distKm =
-                    ((r['distanceMeters'] as num?)?.toDouble() ?? 0.0) /
-                        1000.0;
+                    ((r['distanceMeters'] as num?)?.toDouble() ?? 0.0) / 1000.0;
                 final avg = (r['avgSpeedKmh'] as num?)?.toDouble() ?? 0.0;
                 final max = (r['maxSpeedKmh'] as num?)?.toDouble() ?? 0.0;
                 final time =
@@ -247,6 +293,45 @@ class _RecordScreenState extends State<RecordScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // ── ✅ 기간 필터 UI (ChoiceChip) ───────────────────────────────
+  Widget _buildDateFilterRow() {
+    Widget chip(String label, _DateFilter v) {
+      final selected = _filter == v;
+      return ChoiceChip(
+        label: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : Colors.black87,
+          ),
+        ),
+        selected: selected,
+        onSelected: (_) => setState(() => _filter = v),
+        backgroundColor: Colors.white,
+        selectedColor: const Color(0xFFFF4E6B),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: selected ? const Color(0xFFFF4E6B) : const Color(0xFFE5E7EB),
+          ),
+        ),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        elevation: 0,
+      );
+    }
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 8,
+      children: [
+        chip('주', _DateFilter.week),
+        chip('월', _DateFilter.month),
+        chip('년', _DateFilter.year),
+        chip('전체', _DateFilter.all),
+      ],
     );
   }
 
@@ -334,7 +419,6 @@ class _RecordScreenState extends State<RecordScreen> {
   }
 
   /// ---- 이미지/경로 비율 유틸 ----
-
   Future<double?> _imageAspectRatioFromProvider(ImageProvider provider) async {
     final completer = Completer<double?>();
     final stream = provider.resolve(const ImageConfiguration());
@@ -380,7 +464,8 @@ class _RecordScreenState extends State<RecordScreen> {
       return FutureBuilder<double?>(
         future: _imageAspectRatioFromProvider(provider),
         builder: (ctx, snap) {
-          final ar = (snap.data != null && (snap.data!) > 0) ? snap.data! : 4 / 3;
+          final ar =
+          (snap.data != null && (snap.data!) > 0) ? snap.data! : 4 / 3;
           return ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: AspectRatio(
@@ -415,7 +500,8 @@ class _RecordScreenState extends State<RecordScreen> {
       return FutureBuilder<double?>(
         future: _imageAspectRatioFromProvider(provider),
         builder: (ctx, snap) {
-          final ar = (snap.data != null && (snap.data!) > 0) ? snap.data! : 4 / 3;
+          final ar =
+          (snap.data != null && (snap.data!) > 0) ? snap.data! : 4 / 3;
           return ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: AspectRatio(
@@ -452,8 +538,8 @@ class _RecordScreenState extends State<RecordScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       alignment: Alignment.center,
-      child: Text('이미지 없음',
-          style: TextStyle(color: Colors.grey.shade600)),
+      child:
+      Text('이미지 없음', style: TextStyle(color: Colors.grey.shade600)),
     );
   }
 
@@ -474,7 +560,6 @@ class _RecordScreenState extends State<RecordScreen> {
     return null;
   }
 
-
   /// 로컬 파일 경로 정규화
   File? _resolveLocalFile(String? raw) {
     if (raw == null) return null;
@@ -492,7 +577,8 @@ class _RecordScreenState extends State<RecordScreen> {
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
         const SizedBox(height: 4),
         Text(value,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            style:
+            const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       ],
     );
   }

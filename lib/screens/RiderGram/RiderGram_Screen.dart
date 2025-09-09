@@ -1,4 +1,4 @@
-//lib/RiderGram/RiderGram_Screen.dart
+// lib/RiderGram/RiderGram_Screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
@@ -30,7 +30,8 @@ class _RidergramScreenState extends State<RidergramScreen> {
   Future<List<PostModel>> _fetchPosts() async {
     final res = await ApiClient.get('/api/posts');
     final List list = jsonDecode(res.body);
-    final items = list.map((e) => PostModel.fromJson(e)).toList().cast<PostModel>();
+    final items =
+    list.map((e) => PostModel.fromJson(e)).toList().cast<PostModel>();
     _posts
       ..clear()
       ..addAll(items);
@@ -85,7 +86,10 @@ class _RidergramScreenState extends State<RidergramScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white, // ✅ 배경색 흰색
       appBar: AppBar(
+        backgroundColor: Colors.white, // ✅ AppBar 배경색
+        elevation: 0, // ✅ 그림자 제거
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
@@ -94,16 +98,18 @@ class _RidergramScreenState extends State<RidergramScreen> {
           ),
           IconButton(
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const Search()));
+              Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => const Search()));
             },
-            icon: const Icon(Icons.search, size: 28),
+            icon: const Icon(Icons.search, size: 30),
           ),
         ],
       ),
       body: FutureBuilder<List<PostModel>>(
         future: _future,
         builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting && _posts.isEmpty) {
+          if (snap.connectionState == ConnectionState.waiting &&
+              _posts.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
           if (snap.hasError) {
@@ -112,7 +118,8 @@ class _RidergramScreenState extends State<RidergramScreen> {
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               itemCount: _posts.length,
               separatorBuilder: (_, __) => const SizedBox(height: 16),
               itemBuilder: (_, i) => _PostCard(
@@ -120,7 +127,8 @@ class _RidergramScreenState extends State<RidergramScreen> {
                 onToggleLike: () => _toggleLike(i),
                 onCommentCountChanged: (newCount) {
                   setState(() {
-                    _posts[i] = _posts[i].copyWith(commentCount: newCount);
+                    _posts[i] =
+                        _posts[i].copyWith(commentCount: newCount);
                   });
                 },
               ),
@@ -149,19 +157,17 @@ class _PostCard extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PublicProfileScreen(
-          userId: post.writerId,
-          nickname: post.writer,
-        ),
+        builder: (_) =>
+            PublicProfileScreen(userId: post.writerId, nickname: post.writer),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = (post.imageUrl != null && post.imageUrl!.trim().isNotEmpty);
+    final hasImage =
+    (post.imageUrl != null && post.imageUrl!.trim().isNotEmpty);
 
-    // ✅ 프로필/본문 이미지 모두 절대 URL로 보정
     final avatarUrl = (post.writerProfileImage ?? '').trim();
     final ImageProvider avatar = avatarUrl.isNotEmpty
         ? NetworkImage(ApiClient.absoluteUrl(avatarUrl))
@@ -173,7 +179,7 @@ class _PostCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 작성자(아바타 + 이름) — 탭하면 공개 프로필
+        // 작성자
         InkWell(
           onTap: () => _openProfile(context),
           child: Row(
@@ -181,14 +187,16 @@ class _PostCard extends StatelessWidget {
               CircleAvatar(radius: 16, backgroundImage: avatar),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(post.writer, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                child: Text(post.writer,
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
         ),
         const SizedBox(height: 12),
 
-        // [1] 이미지
+        // 이미지
         if (contentImageUrl != null)
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
@@ -204,42 +212,55 @@ class _PostCard extends StatelessWidget {
             ),
           ),
 
-        // [2] 본문(이미지 바로 아래)
+        // 본문
         if (post.content.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(post.content),
         ],
 
-        // 위치/태그
+        // 위치
         if ((post.location ?? '').isNotEmpty) ...[
           const SizedBox(height: 6),
-          Text('📍 ${post.location!}', style: const TextStyle(color: Colors.grey)),
+          Text('📍 ${post.location!}',
+              style: const TextStyle(color: Colors.grey)),
         ],
+
+        // 해시태그
         if ((post.hashtags ?? '').isNotEmpty) ...[
           const SizedBox(height: 6),
           Wrap(
             spacing: 10,
             children: (post.hashtags!.trim().split(RegExp(r'\s+')))
                 .where((w) => w.isNotEmpty)
-                .map((t) => Text(t, style: const TextStyle(color: Color(0xFF0088FF))))
+                .map((t) =>
+                Text(t, style: const TextStyle(color: Color(0xFF0088FF))))
                 .toList(),
           ),
         ],
 
-        // [3] 액션바(하트/댓글)
+        // 액션바
         const SizedBox(height: 8),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            IconButton(
-              onPressed: onToggleLike,
-              icon: Icon(post.liked ? Icons.favorite : Icons.favorite_border,
-                  color: post.liked ? Colors.red : null),
+            // ❤️ 좋아요
+            GestureDetector(
+              onTap: onToggleLike,
+              child: Icon(
+                post.liked ? Icons.favorite : Icons.favorite_border,
+                color: post.liked ? Colors.red : null,
+                size: 26,
+              ),
             ),
-            Text('${post.likeCount}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
-            const SizedBox(width: 12),
-            IconButton(
-              icon: const Icon(Icons.mode_comment_outlined),
-              onPressed: () async {
+            const SizedBox(width: 4), // ← 아이콘과 숫자 간격
+            Text('${post.likeCount}',
+                style: const TextStyle(fontSize: 14, color: Colors.grey)),
+
+            const SizedBox(width: 16), // 그룹 간격
+
+            // 💬 댓글
+            GestureDetector(
+              onTap: () async {
                 final newCount = await showModalBottomSheet<int>(
                   context: context,
                   isScrollControlled: true,
@@ -248,8 +269,11 @@ class _PostCard extends StatelessWidget {
                 );
                 if (newCount != null) onCommentCountChanged(newCount);
               },
+              child: const Icon(Icons.mode_comment_outlined, size: 26),
             ),
-            Text('${post.commentCount}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+            const SizedBox(width: 4), // ← 아이콘과 숫자 간격
+            Text('${post.commentCount}',
+                style: const TextStyle(fontSize: 14, color: Colors.grey)),
           ],
         ),
         const SizedBox(height: 24),
