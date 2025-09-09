@@ -1,3 +1,4 @@
+//lib/RiderGram/RiderGram_Screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
@@ -127,7 +128,7 @@ class _RidergramScreenState extends State<RidergramScreen> {
           );
         },
       ),
-      bottomNavigationBar: BottomAppBarWidget(),
+      bottomNavigationBar: const BottomAppBarWidget(currentIndex: 3),
     );
   }
 }
@@ -172,7 +173,7 @@ class _PostCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 작성자(아바타 + 이름) --- 탭하면 공개 프로필
+        // 작성자(아바타 + 이름) — 탭하면 공개 프로필
         InkWell(
           onTap: () => _openProfile(context),
           child: Row(

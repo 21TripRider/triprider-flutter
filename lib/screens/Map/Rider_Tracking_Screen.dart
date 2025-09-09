@@ -1,4 +1,4 @@
-//lib/screens/Map/Ride_Tracking_Screen.dart
+// lib/screens/Map/Ride_Tracking_Screen.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -12,7 +12,6 @@ import 'package:triprider/screens/Map/API/Ride_Api.dart';
 import 'package:triprider/state/rider_tracker_service.dart';
 import 'package:triprider/utils/kakao_map_channel.dart';
 import 'package:triprider/screens/Map/KakaoMapScreen.dart';
-
 
 class RideTrackingScreen extends StatefulWidget {
   const RideTrackingScreen({super.key});
@@ -33,6 +32,11 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
   static const String _kakaoRestApiKey = '471ee3eec0b9d8a5fc4eb86fb849e524';
   static const String _googleStaticApiKey = 'AIzaSyA53fiKudkjSzIee7zn-gebXgJuWNuF4lc';
 
+  // 상단 미니맵 "follow-me" 전용
+  StreamSubscription<Position>? _mapPosSub;
+  bool _mapReady = false;
+  final bool _followMe = true;
+
   // UI interactions
   DateTime? _stopHoldStart; // 종료 길게누름 시작 시간
   // UI 색상 스위치(일시정지 상태에 따라 변경)
@@ -46,7 +50,9 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     _initAndStart();
   }
 
-  void _onSvc() { if (mounted) setState(() {}); }
+  void _onSvc() {
+    if (mounted) setState(() {});
+  }
 
   Future<void> _initAndStart() async {
     try {
@@ -59,17 +65,24 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.deniedForever || permission == LocationPermission.denied) {
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
         setState(() => _error = '위치 권한이 필요합니다.');
         return;
       }
 
-      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.best);
+      final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.best);
       setState(() {
         _lat = pos.latitude;
         _lon = pos.longitude;
         _initialized = true;
       });
+
+      // 지도 준비가 되어 있으면 즉시 싱크
+      await _ensureMiniMapSynced();
+
+      // 주행 세션 복구/시작
       await svc.tryRestore();
       if (!svc.isActive) {
         await svc.start();
@@ -86,50 +99,105 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     return 'ride_records$suffix';
   }
 
+  // ── 상단 미니맵: PlatformView 생성 콜백 ────────────────────────────
   void _onPlatformViewCreated(int id) {
     _channel.initChannel(id);
+    _mapReady = true;
+    _ensureMiniMapSynced(); // 위치/카메라 초기 싱크 + 팔로우 스트림 시작
   }
 
-  Widget _buildPlatformView(double lat, double lon) {
-    // 지도는 배경만 표시. 네이티브 뷰 유형과 채널 동일하게 사용
-    return Builder(builder: (context) {
-      return LayoutBuilder(builder: (_, __) {
-        if (Platform.isAndroid) {
-          return AndroidView(
-            viewType: 'map-kakao',
-            onPlatformViewCreated: _onPlatformViewCreated,
-            creationParams: {
-              'lat': lat,
-              'lon': lon,
-              'zoomLevel': _zoomLevel,
-            },
-            creationParamsCodec: const StandardMessageCodec(),
+  // 미니맵 초기화 및 팔로우 시작
+  Future<void> _ensureMiniMapSynced() async {
+    if (!_mapReady || _lat == null || _lon == null) return;
+    try {
+      await _channel.setUserLocationVisible(true);
+      await _channel.setUserLocation(lat: _lat!, lon: _lon!);
+      await _channel.animateCamera(
+        lat: _lat!,
+        lon: _lon!,
+        zoomLevel: _zoomLevel,
+        durationMs: 350,
+      );
+    } catch (_) {}
+
+    _startMiniMapFollow();
+  }
+
+  // 위치 스트림으로 상단 미니맵이 사용자를 계속 따라오게
+  void _startMiniMapFollow() {
+    _mapPosSub?.cancel();
+    DateTime lastMove = DateTime.fromMillisecondsSinceEpoch(0);
+
+    _mapPosSub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 3,
+      ),
+    ).listen((pos) async {
+      _lat = pos.latitude;
+      _lon = pos.longitude;
+
+      if (!_mapReady) return;
+      try {
+        await _channel.setUserLocation(lat: _lat!, lon: _lon!);
+      } catch (_) {}
+
+      final now = DateTime.now();
+      if (_followMe && now.difference(lastMove).inMilliseconds > 350) {
+        lastMove = now;
+        try {
+          await _channel.animateCamera(
+            lat: _lat!,
+            lon: _lon!,
+            zoomLevel: _zoomLevel,
+            durationMs: 300,
           );
-        }
-        return UiKitView(
-          viewType: 'map-kakao',
-          onPlatformViewCreated: _onPlatformViewCreated,
-          creationParams: {
-            'lat': lat,
-            'lon': lon,
-            'zoomLevel': _zoomLevel,
-          },
-          creationParamsCodec: const StandardMessageCodec(),
-        );
-      });
+        } catch (_) {}
+      }
+
+      if (mounted) setState(() {});
     });
   }
 
-  void _startTracking() async { await svc.start(); setState(() {}); }
+  Widget _buildPlatformView(double lat, double lon) {
+    // 지도는 배경만 표시가 아니라, 이제 follow-me로 갱신됨
+    if (Platform.isAndroid) {
+      return AndroidView(
+        viewType: 'map-kakao',
+        onPlatformViewCreated: _onPlatformViewCreated,
+        creationParams: {
+          'lat': lat,
+          'lon': lon,
+          'zoomLevel': _zoomLevel,
+        },
+        creationParamsCodec: const StandardMessageCodec(),
+      );
+    }
+    return UiKitView(
+      viewType: 'map-kakao',
+      onPlatformViewCreated: _onPlatformViewCreated,
+      creationParams: {
+        'lat': lat,
+        'lon': lon,
+        'zoomLevel': _zoomLevel,
+      },
+      creationParamsCodec: const StandardMessageCodec(),
+    );
+  }
+
+  void _startTracking() async {
+    await svc.start();
+    setState(() {});
+  }
 
   Future<void> _finishAndPop() async {
-    final elapsedSec = svc.elapsed.inSeconds.toDouble().clamp(1, double.infinity);
+    final elapsedSec =
+    svc.elapsed.inSeconds.toDouble().clamp(1, double.infinity);
     final hours = elapsedSec / 3600.0;
-    final avgSpeedKmh = hours > 0 ? (svc.totalMeters / 1000.0) / hours : 0.0;
+    final avgSpeedKmh =
+    hours > 0 ? (svc.totalMeters / 1000.0) / hours : 0.0;
 
-    // 포인트 업로드는 서비스 전환 이후 별도 처리 예정
-
-    // 썸네일 생성: Google Static → Kakao Static → 마지막 수단으로 지도 스냅샷
+    // 썸네일 생성: Google Static → Kakao Static → 캡처
     String? imagePath;
     try {
       String? staticPath = await _buildGoogleStaticMapForPath(svc.path);
@@ -155,7 +223,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       record['imagePath'] = imagePath;
     }
 
-    // 로컬 저장(기존 키/머지 정책 동일)
+    // 로컬 저장(기존 정책 유지)
     try {
       final prefs = await SharedPreferences.getInstance();
       final key = await _prefsKeyRideRecords();
@@ -163,14 +231,17 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
 
       bool merged = false;
       final ended = DateTime.tryParse(record['endedAt'] ?? '');
-      final newKm = ((record['distanceMeters'] as num?)?.toDouble() ?? 0.0) / 1000.0;
+      final newKm =
+          ((record['distanceMeters'] as num?)?.toDouble() ?? 0.0) / 1000.0;
       for (int i = 0; i < list.length; i++) {
         try {
           final m = jsonDecode(list[i]) as Map<String, dynamic>;
           final e = DateTime.tryParse(m['endedAt'] ?? '');
           if (ended != null && e != null) {
-            final sameMinute = (ended.millisecondsSinceEpoch ~/ 60000) == (e.millisecondsSinceEpoch ~/ 60000);
-            final km = ((m['distanceMeters'] as num?)?.toDouble() ?? 0.0) / 1000.0;
+            final sameMinute = (ended.millisecondsSinceEpoch ~/ 60000) ==
+                (e.millisecondsSinceEpoch ~/ 60000);
+            final km =
+                ((m['distanceMeters'] as num?)?.toDouble() ?? 0.0) / 1000.0;
             if (sameMinute && ((newKm - km).abs() < 0.1)) {
               list[i] = jsonEncode(record);
               merged = true;
@@ -183,10 +254,10 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       await prefs.setStringList(key, list);
     } catch (_) {}
 
-    // 서버 종료 전 마지막 포인트 업로드 시도
+    // 서버 업로드 잔여분
     await svc.uploadPendingPoints();
 
-    // 서버 종료(라이드 세션 마감) — 스냅샷 첨부
+    // 서버 종료(스냅샷 첨부)
     if (svc.rideId != null) {
       final meta = <String, dynamic>{
         'title': '라이딩',
@@ -222,8 +293,9 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
 
   // ======================= Static Map 생성 =======================
 
-  // Google Static: URL 길이 제한(≈2k) 방지를 위해 80포인트로 샘플링 + 소수점 5자리
-  Future<String?> _buildGoogleStaticMapForPath(List<List<double>> path) async {
+  // Google Static
+  Future<String?> _buildGoogleStaticMapForPath(
+      List<List<double>> path) async {
     if (path.length < 2) return null;
     final sampled = _sampleForStatic(path, 80);
     final pathParam = sampled
@@ -235,16 +307,18 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       'path': 'color:0x1565C0ff|weight:6|$pathParam',
       'key': _googleStaticApiKey,
     };
-    final uri = Uri.https('maps.googleapis.com', '/maps/api/staticmap', params);
+    final uri =
+    Uri.https('maps.googleapis.com', '/maps/api/staticmap', params);
     final resp = await http.get(uri);
     if (resp.statusCode != 200 || resp.bodyBytes.isEmpty) return null;
     final dir = await Directory.systemTemp.createTemp('triprider_gstatic');
-    final file = File('${dir.path}/route_${DateTime.now().millisecondsSinceEpoch}.png');
+    final file = File(
+        '${dir.path}/route_${DateTime.now().millisecondsSinceEpoch}.png');
     await file.writeAsBytes(resp.bodyBytes);
     return file.path;
   }
 
-  // Kakao Static: 조금 더 여유롭게 120포인트로 샘플링 + 소수점 5자리
+  // Kakao Static
   Future<String?> _buildStaticMapForPath(List<List<double>> path) async {
     if (path.length < 2) return null;
     double minLat = path.first[0], maxLat = path.first[0];
@@ -284,22 +358,27 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
         .map((p) => '${p[1].toStringAsFixed(5)},${p[0].toStringAsFixed(5)}')
         .join('|'); // lon,lat
     final params = {
-      'center': '${centerLon.toStringAsFixed(6)},${centerLat.toStringAsFixed(6)}',
+      'center':
+      '${centerLon.toStringAsFixed(6)},${centerLat.toStringAsFixed(6)}',
       'level': level.toString(),
       'w': '800',
       'h': '600',
       'paths': 'color:0x1565C0|width:6|$pts',
     };
-    final uri = Uri.https('dapi.kakao.com', '/v2/maps/staticmap', params);
-    final resp = await http.get(uri, headers: {'Authorization': 'KakaoAK $_kakaoRestApiKey'});
+    final uri =
+    Uri.https('dapi.kakao.com', '/v2/maps/staticmap', params);
+    final resp = await http.get(uri,
+        headers: {'Authorization': 'KakaoAK $_kakaoRestApiKey'});
     if (resp.statusCode != 200 || resp.bodyBytes.isEmpty) return null;
     final dir = await Directory.systemTemp.createTemp('triprider_static');
-    final file = File('${dir.path}/route_${DateTime.now().millisecondsSinceEpoch}.png');
+    final file = File(
+        '${dir.path}/route_${DateTime.now().millisecondsSinceEpoch}.png');
     await file.writeAsBytes(resp.bodyBytes);
     return file.path;
   }
 
-  List<List<double>> _sampleForStatic(List<List<double>> src, int maxPoints) {
+  List<List<double>> _sampleForStatic(
+      List<List<double>> src, int maxPoints) {
     if (src.length <= maxPoints) return src;
     final out = <List<double>>[];
     final step = src.length / maxPoints;
@@ -320,7 +399,8 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     if (!_initialized) {
       return Scaffold(
         body: Center(
-          child: _error != null ? Text(_error!) : const CircularProgressIndicator(),
+          child:
+          _error != null ? Text(_error!) : const CircularProgressIndicator(),
         ),
       );
     }
@@ -328,8 +408,11 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     final mapHeight = 220.0;
     final elapsedText = _formatElapsed(svc.elapsed);
     final currentKmh = svc.currentSpeedKmh;
-    final avgKmh = svc.elapsed.inSeconds > 0 ? (svc.totalMeters / 1000.0) / (svc.elapsed.inSeconds / 3600.0) : 0.0;
-    final distanceKm = (svc.totalMeters / 1000.0).clamp(0.0, double.infinity);
+    final avgKmh = svc.elapsed.inSeconds > 0
+        ? (svc.totalMeters / 1000.0) / (svc.elapsed.inSeconds / 3600.0)
+        : 0.0;
+    final distanceKm =
+    (svc.totalMeters / 1000.0).clamp(0.0, double.infinity);
 
     return WillPopScope(
       onWillPop: () async {
@@ -361,9 +444,13 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               shape: BoxShape.circle,
-                              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Colors.black12, blurRadius: 8)
+                              ],
                             ),
-                            child: const Icon(Icons.arrow_back_ios_new, color: Colors.black87),
+                            child: const Icon(Icons.arrow_back_ios_new,
+                                color: Colors.black87),
                           ),
                         ),
                       ),
@@ -378,13 +465,24 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                       children: [
                         const SizedBox(height: 16),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding:
+                          const EdgeInsets.symmetric(horizontal: 16),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
                             children: [
-                              _metric(big: _formatInt(currentKmh), unit: 'km/h', label: '현재 속도'),
-                              _metric(big: _formatInt(avgKmh), unit: 'km/h', label: '평균 속도'),
-                              _metric(big: _formatInt(distanceKm), unit: 'km', label: '주행 거리'),
+                              _metric(
+                                  big: _formatInt(currentKmh),
+                                  unit: 'km/h',
+                                  label: '현재 속도'),
+                              _metric(
+                                  big: _formatInt(avgKmh),
+                                  unit: 'km/h',
+                                  label: '평균 속도'),
+                              _metric(
+                                  big: _formatInt(distanceKm),
+                                  unit: 'km',
+                                  label: '주행 거리'),
                             ],
                           ),
                         ),
@@ -441,7 +539,10 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     return v.round().toString();
   }
 
-  Widget _metric({required String big, required String unit, required String label}) {
+  Widget _metric(
+      {required String big,
+        required String unit,
+        required String label}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -480,11 +581,18 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     );
   }
 
-  void _togglePause() { svc.isPaused ? _resumeTracking() : _pauseTracking(); }
+  void _togglePause() =>
+      svc.isPaused ? _resumeTracking() : _pauseTracking();
 
-  void _pauseTracking() { svc.pause(); setState(() {}); }
+  void _pauseTracking() {
+    svc.pause();
+    setState(() {});
+  }
 
-  void _resumeTracking() { svc.resume(); setState(() {}); }
+  void _resumeTracking() {
+    svc.resume();
+    setState(() {});
+  }
 
   Widget _buildControls() {
     if (!svc.isPaused) {
@@ -517,7 +625,8 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
           },
           onTapUp: (_) {
             if (_stopHoldStart != null) {
-              final held = DateTime.now().difference(_stopHoldStart!);
+              final held =
+              DateTime.now().difference(_stopHoldStart!);
               _stopHoldStart = null;
               if (held >= const Duration(seconds: 2)) {
                 _finishAndPop();
@@ -547,7 +656,8 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
               color: Color(0xFFFF4E6B),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.play_arrow, color: Colors.white, size: 40),
+            child: const Icon(Icons.play_arrow,
+                color: Colors.white, size: 40),
           ),
         ),
       ],
@@ -556,10 +666,8 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
 
   @override
   void dispose() {
-    // 화면 리스너만 정리; 세션은 서비스가 소유
     svc.removeListener(_onSvc);
+    _mapPosSub?.cancel(); // 미니맵 follow 스트림 정리
     super.dispose();
   }
 }
-
-

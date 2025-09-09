@@ -25,16 +25,20 @@ class _HomescreenState extends State<Homescreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: ListView(
-        children: const [
-          _Weather(),
-          SizedBox(height: 15),
-          _RentSection(),
-          SizedBox(height: 15),
-          _Record(), // 최근 주행 기록 카드
-        ],
+      backgroundColor: const Color(0xFFF5F5F5),
+      body: SafeArea(
+        child: ListView(
+          children: const [
+            SizedBox(height: 20),
+            _Weather(),
+            SizedBox(height: 20),
+            _RentSection(),
+            SizedBox(height: 20),
+            _Record(), // 최근 주행 기록 카드
+          ],
+        ),
       ),
-      bottomNavigationBar: const BottomAppBarWidget(),
+      bottomNavigationBar: const BottomAppBarWidget(currentIndex: 0),
     );
   }
 }
@@ -595,7 +599,7 @@ class _Chip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: const Color(0XFFFFF4F6),
-        borderRadius: BorderRadius.circular(50),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Text(text, style: const TextStyle(color: Color(0XFFFF4E6B))),
     );

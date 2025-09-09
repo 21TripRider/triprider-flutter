@@ -1,3 +1,4 @@
+// lib/state/map_view_model.dart
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:geolocator/geolocator.dart';

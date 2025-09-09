@@ -417,7 +417,7 @@ class _MypageScreenState extends State<MypageScreen>
           ],
         ),
       ),
-      bottomNavigationBar: const BottomAppBarWidget(),
+      bottomNavigationBar: const BottomAppBarWidget(currentIndex: 4),
     );
   }
 }

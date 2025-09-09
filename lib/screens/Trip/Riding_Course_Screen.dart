@@ -1,3 +1,4 @@
+//lib/Trip/Riding_Course_Screen.dart
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -30,30 +31,32 @@ class _Riding_CourseState extends State<RidingCourse> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        elevation: 0,
+        backgroundColor: Colors.white,
+        toolbarHeight: 56,
+        titleSpacing: 0,
         centerTitle: true,
-        title: const Text(
-          '라이딩 코스 추천',
-          style: TextStyle(fontSize: 25, fontWeight: FontWeight.w600),
+        title: Select_Section(
+          selectedIndex: selectedIndex,
+          onSelect: (index) => setState(() => selectedIndex = index),
         ),
       ),
       // 🔧 ListView -> SingleChildScrollView + Column
       body: SingleChildScrollView(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Select_Section(
-              selectedIndex: selectedIndex,
-              onSelect: (index) => setState(() => selectedIndex = index),
-            ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 12),
 
             if (selectedIndex == 0) ...[
               const Padding(
-                padding: EdgeInsets.only(right: 300, bottom: 30, top: 20),
+                padding: EdgeInsets.only(left: 16, bottom: 20),
                 child: Text(
                   '인기코스',
-                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
                 ),
               ),
               Center(child: Popular_Course(favorite_Pressed: () {})),
@@ -67,7 +70,7 @@ class _Riding_CourseState extends State<RidingCourse> {
           ],
         ),
       ),
-      bottomNavigationBar: const BottomAppBarWidget(),
+      bottomNavigationBar: const BottomAppBarWidget(currentIndex: 2),
     );
   }
 }
@@ -86,49 +89,82 @@ class Select_Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    double _measure(String text, TextStyle style) {
+      final tp = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
+      return tp.size.width;
+    }
+
+    const TextStyle labelStyle = TextStyle(fontSize: 20);
+    const Color active = Colors.pink;
+
+    const String tab0 = '라이딩 코스';
+    const String tab1 = '맞춤형 코스';
+    final double w0 = _measure(tab0, labelStyle);
+    final double w1 = _measure(tab1, labelStyle);
+
+    return Row(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextButton(
-              onPressed: () => onSelect(0),
-              child: Text(
-                '라이딩 코스',
-                style: TextStyle(
-                  fontSize: 20,
-                  color: selectedIndex == 0 ? Colors.pink : Colors.black,
-                ),
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onSelect(0),
+            child: SizedBox(
+              height: 56,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Text(
+                    tab0,
+                    style: labelStyle.copyWith(
+                      color: selectedIndex == 0 ? active : Colors.black,
+                      fontWeight: selectedIndex == 0 ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    child: Container(
+                      width: w0,
+                      height: 2,
+                      color: selectedIndex == 0 ? active : Colors.transparent,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 50),
-            TextButton(
-              onPressed: () => onSelect(1),
-              child: Text(
-                '맞춤형 여행 코스',
-                style: TextStyle(
-                  fontSize: 20,
-                  color: selectedIndex == 1 ? Colors.pink : Colors.black,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 2,
-              color: selectedIndex == 0 ? Colors.pink : Colors.transparent,
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onSelect(1),
+            child: SizedBox(
+              height: 56,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Text(
+                    tab1,
+                    style: labelStyle.copyWith(
+                      color: selectedIndex == 1 ? active : Colors.black,
+                      fontWeight: selectedIndex == 1 ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    child: Container(
+                      width: w1,
+                      height: 2,
+                      color: selectedIndex == 1 ? active : Colors.transparent,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(width: 50),
-            Container(
-              width: 160,
-              height: 2,
-              color: selectedIndex == 1 ? Colors.pink : Colors.transparent,
-            ),
-          ],
+          ),
         ),
       ],
     );
@@ -519,14 +555,23 @@ class OrderHeaderRow extends StatelessWidget {
 
     return Align(
       alignment: Alignment.centerRight,
-      child: OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: TextButton(
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          foregroundColor: Colors.black,
         ),
         onPressed: () => onChanged(isDesc ? 'asc' : 'desc'),
-        icon: Icon(isDesc ? Icons.route : Icons.route, size: 18,color: Colors.black,),
-        label: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600,color: Colors.black)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.unfold_more_rounded, size: 16, color: Color(0xFF999999)),
+          ],
+        ),
       ),
     );
   }

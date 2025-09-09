@@ -85,13 +85,13 @@ class RentshopList extends StatelessWidget {
       final half = (r - full) >= 0.5;
       final list = <Widget>[];
       for (var i = 0; i < full && i < 5; i++) {
-        list.add(const Icon(Icons.star, size: 20, color: Color(0xFFFFD400)));
+        list.add(const Icon(Icons.star_rounded, size: 20, color: Color(0xFFFFD400)));
       }
       if (half && list.length < 5) {
-        list.add(const Icon(Icons.star_half, size: 20, color: Color(0xFFFFD400)));
+        list.add(const Icon(Icons.star_half_rounded, size: 20, color: Color(0xFFFFD400)));
       }
       while (list.length < 5) {
-        list.add(const Icon(Icons.star_border, size: 20, color: Color(0xFFFFD400)));
+        list.add(const Icon(Icons.star_border_rounded, size: 20, color: Color(0xFFFFD400)));
       }
       return list;
     }
@@ -102,7 +102,7 @@ class RentshopList extends StatelessWidget {
         children: [
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
               itemCount: shops.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (_, i) {
@@ -119,55 +119,60 @@ class RentshopList extends StatelessWidget {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
+                    child: IntrinsicHeight(
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.asset(
-                              s['image'] as String,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(16),
+                              bottomLeft: Radius.circular(16),
+                            ),
+                            child: SizedBox(
                               width: 140,
-                              height: 100,
-                              fit: BoxFit.cover,
+                              child: Image.asset(
+                                s['image'] as String,
+                                fit: BoxFit.cover,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 16),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  s['name'] as String,
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  s['addr'] as String,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    ...stars(s['rating'] as double),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '(${(s['rating'] as double).toStringAsFixed(2)})',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey.shade600,
-                                      ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    s['name'] as String,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
                                     ),
-                                  ],
-                                ),
-                              ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    s['addr'] as String,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      ...stars(s['rating'] as double),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '(${(s['rating'] as double).toStringAsFixed(2)})',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -180,7 +185,7 @@ class RentshopList extends StatelessWidget {
           ),
         ],
       ),
-      backgroundColor: const Color(0xFFF9F3FF),
+      backgroundColor: const Color(0xFFF5F5F5),
     );
   }
 }

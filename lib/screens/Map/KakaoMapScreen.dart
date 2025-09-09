@@ -1,11 +1,14 @@
 // lib/screens/Map/KakaoMapScreen.dart
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
-import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import 'package:triprider/controllers/map_controller.dart';
 import 'package:triprider/data/kakao_local_api.dart';
 import 'package:triprider/screens/Map/Rider_Tracking_Screen.dart';
@@ -13,8 +16,6 @@ import 'package:triprider/state/map_view_model.dart';
 import 'package:triprider/state/rider_tracker_service.dart';
 import 'package:triprider/utils/kakao_map_channel.dart';
 import 'package:triprider/widgets/Bottom_App_Bar.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 /// =======================
 /// ✅ 커스텀 팝업 유틸
@@ -84,7 +85,11 @@ void showTripriderPopup(
                     color: Colors.white.withOpacity(0.7),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: const [
-                      BoxShadow(color: Colors.black26, blurRadius: 16, offset: Offset(0, 6)),
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 16,
+                        offset: Offset(0, 6),
+                      ),
                     ],
                     border: Border.all(color: Color(0xFFE9E9EE)),
                   ),
@@ -94,7 +99,8 @@ void showTripriderPopup(
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.sports_motorsports_rounded, color: Colors.pink),
+                          Icon(Icons.sports_motorsports_rounded,
+                              color: Colors.pink),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -109,22 +115,16 @@ void showTripriderPopup(
                         ],
                       ),
                       const SizedBox(height: 10),
-                      const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+                      const Divider(
+                          height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
                       const SizedBox(height: 10),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              message,
-                              style: const TextStyle(
-                                fontSize: 14.5,
-                                height: 1.35,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        message,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          height: 1.35,
+                          color: Colors.black87,
+                        ),
                       ),
                     ],
                   ),
@@ -141,6 +141,9 @@ void showTripriderPopup(
   Future.delayed(duration, safeRemove);
 }
 
+/// =======================
+/// ✅ 메인 맵 스크린
+/// =======================
 class KakaoMapScreen extends StatefulWidget {
   const KakaoMapScreen({super.key, this.overlayFromTracking = false});
   final bool overlayFromTracking;
@@ -153,119 +156,33 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
   final KakaoMapChannel _channel = KakaoMapChannel();
 
   bool _loading = true;
-  String? _error;
   double? _lat;
   double? _lon;
   final int _zoomLevel = 16;
   String? _warning;
 
-  bool _tracking = false;
-  StreamSubscription<Position>? _posSub;
   StreamSubscription<Position>? _userPosSub;
-  int _lastRenderedPointCount = 0;
 
-  bool _loadingPois = false;
   String _activeFilter = 'none';
-  List<Map<String, dynamic>> _pois = <Map<String, dynamic>>[];
-  final Map<int, Map<String, dynamic>> _labelById = <int, Map<String, dynamic>>{};
-  int _lastIdleZoom = 16;
-  double? _lastIdleLat;
-  double? _lastIdleLon;
-  Timer? _poiDebounce;
+  List<Map<String, dynamic>> _pois = [];
+  final Map<int, Map<String, dynamic>> _labelById = {};
+
   bool _suppressPoiOnce = false;
+  Timer? _poiDebounce;
 
   static const String _kakaoRestApiKey = '471ee3eec0b9d8a5fc4eb86fb849e524';
-  static const String _googleStaticApiKey = 'AIzaSyA53fiKudkjSzIee7zn-gebXgJuWNuF4lc';
-
   late final KakaoLocalApi _api = KakaoLocalApi(_kakaoRestApiKey);
   late final MapController _mapController = MapController(_channel);
-  late final MapViewModel _vm = MapViewModel(api: _api, controller: _mapController);
+  late final MapViewModel _vm =
+  MapViewModel(api: _api, controller: _mapController);
+
+  // follow-me 모드
+  final bool _followMe = true;
 
   @override
   void initState() {
     super.initState();
     _initLocation();
-  }
-
-  List<Map<String, dynamic>> _withDistance(
-      double lat, double lon, List<Map<String, dynamic>> items) {
-    double haversine(double lat1, double lon1, double lat2, double lon2) {
-      const R = 6371000.0;
-      final dLat = (lat2 - lat1) * math.pi / 180.0;
-      final dLon = (lon2 - lon1) * math.pi / 180.0;
-      final a = (math.sin(dLat / 2) * math.sin(dLat / 2)) +
-          math.cos(lat1 * math.pi / 180.0) *
-              math.cos(lat2 * math.pi / 180.0) *
-              (math.sin(dLon / 2) * math.sin(dLon / 2));
-      final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-      return R * c;
-    }
-
-    final out = <Map<String, dynamic>>[];
-    for (final m in items) {
-      final d = haversine(lat, lon, (m['lat'] as num).toDouble(),
-          (m['lon'] as num).toDouble());
-      final n = Map<String, dynamic>.from(m);
-      n['distance'] = d;
-      out.add(n);
-    }
-    out.sort((a, b) =>
-    ((a['distance'] as num).compareTo((b['distance'] as num))));
-    return out;
-  }
-
-  /// ======================= POI/필터 버튼 =======================
-  Widget _filterButton({required String label, required String value}) {
-    final active = _activeFilter == value;
-    return GestureDetector(
-      onTap: () async {
-        final willDeactivate = _activeFilter == value;
-        if (willDeactivate) {
-          setState(() {
-            _activeFilter = 'none';
-            _pois = [];
-          });
-          try {
-            await _channel.removeAllSpotLabel();
-          } catch (_) {}
-          if (_lat != null && _lon != null) {
-            try {
-              await _channel.setUserLocation(lat: _lat!, lon: _lon!);
-            } catch (_) {}
-          }
-          return;
-        }
-
-        setState(() {
-          _activeFilter = value;
-          _pois = [];
-        });
-        _vm.activeFilter = value;
-        if (_lat != null && _lon != null) {
-          await _vm.refreshPois(_lat!, _lon!);
-          _applyVmPoisToLocal(_lat!, _lon!);
-          try {
-            await _channel.setUserLocation(lat: _lat!, lon: _lon!);
-          } catch (_) {}
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 15),
-        decoration: BoxDecoration(
-          color: active ? Colors.pinkAccent : Color(0xD7FFFFFF),
-          border: Border.all(width: 2, color: active ? Colors.white : Colors.pinkAccent),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: active ? Colors.white : Colors.black,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
   }
 
   Future<void> _initLocation() async {
@@ -297,84 +214,233 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
         return;
       }
 
-      final pos = await Geolocator
-          .getCurrentPosition(desiredAccuracy: LocationAccuracy.high)
-          .timeout(const Duration(seconds: 5));
+      final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
 
       setState(() {
         _lat = pos.latitude;
         _lon = pos.longitude;
       });
 
-      try {
-        await _channel.animateCamera(
-            lat: pos.latitude,
-            lon: pos.longitude,
-            zoomLevel: _zoomLevel,
-            durationMs: 350);
-        await _channel.setUserLocation(
-            lat: pos.latitude, lon: pos.longitude);
-      } catch (_) {}
+      // ✅ 초기 카메라 중앙 이동
+      await _channel.animateCamera(
+          lat: pos.latitude,
+          lon: pos.longitude,
+          zoomLevel: _zoomLevel,
+          durationMs: 350);
 
+      // ✅ 기본 파란 점 오버레이 사용
+      await _channel.setUserLocationVisible(true);
+      await _channel.setUserLocation(lat: pos.latitude, lon: pos.longitude);
+
+      // ✅ 스트림 구독 시작 (항상 중앙 유지 + 점 1개)
       _startUserLocationUpdates();
-
-      if (_activeFilter != 'none') {
-        _vm.activeFilter = _activeFilter;
-        await _vm.refreshPois(pos.latitude, pos.longitude);
-        _applyVmPoisToLocal(pos.latitude, pos.longitude);
-      }
-    } on TimeoutException {
-      setState(() {
-        _warning = '현재 위치를 가져오지 못해 기본 위치로 표시합니다.';
-      });
-    } catch (e) {
+    } catch (_) {
       setState(() {
         _warning = '위치 정보를 가져오지 못해 기본 위치로 표시합니다.';
       });
     }
   }
 
+  /// ======================= 필터 버튼 =======================
+  Widget _filterButton({required String label, required String value}) {
+    final active = _activeFilter == value;
+    return GestureDetector(
+      onTap: () async {
+        if (_activeFilter == value) {
+          setState(() {
+            _activeFilter = 'none';
+            _pois = [];
+          });
+          try {
+            await _channel.removeAllSpotLabel();
+          } catch (_) {}
+          return;
+        }
+        setState(() {
+          _activeFilter = value;
+          _pois = [];
+        });
+        _vm.activeFilter = value;
+        if (_lat != null && _lon != null) {
+          await _vm.refreshPois(_lat!, _lon!);
+          _applyVmPoisToLocal(_lat!, _lon!);
+          _showPoiBottomSheet(); // ✅ 리스트 바텀시트 표시
+        }
+      },
+      child: Container(
+        padding:
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: active ? Colors.pinkAccent : Colors.white,
+          borderRadius: BorderRadius.circular(50),
+          boxShadow: const [
+            BoxShadow(
+                color: Colors.black26,
+                blurRadius: 8,
+                offset: Offset(0, 4)),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              value == 'gas' ? Icons.local_gas_station : Icons.motorcycle,
+              color: active ? Colors.white : Colors.pinkAccent,
+              size: 18,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: active ? Colors.white : Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// ======================= POI 바텀시트 =======================
+  Future<void> _showPoiBottomSheet() async {
+    if (_pois.isEmpty) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.4,
+          minChildSize: 0.2,
+          maxChildSize: 0.9,
+          builder: (_, controller) {
+            return ListView.separated(
+              controller: controller,
+              itemCount: _pois.length,
+              separatorBuilder: (_, __) => const Divider(
+                  height: 1, thickness: 1, color: Color(0xFFE0E0E0)),
+              itemBuilder: (_, i) {
+                final m = _pois[i];
+                final name = (m['name'] as String?) ?? '-';
+                final dist = (m['distance'] as double?) ?? 0.0;
+
+                return InkWell(
+                  onTap: () async {
+                    final lat = (m['lat'] as num).toDouble();
+                    final lon = (m['lon'] as num).toDouble();
+                    _suppressPoiOnce = true;
+                    await _channel.animateCamera(
+                        lat: lat, lon: lon, zoomLevel: 16, durationMs: 350);
+
+                    // ✅ POI만 마커로 표시
+                    try {
+                      await _channel.clearMarkers();
+                    } catch (_) {}
+                    await _channel.setMarkers([
+                      {
+                        'id': 999001,
+                        'lat': lat,
+                        'lon': lon,
+                        'title': name,
+                        'type': 'poi',
+                        'color': 'blue',
+                      }
+                    ]);
+
+                    Navigator.pop(context);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 25),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _activeFilter == 'moto'
+                              ? Icons.motorcycle
+                              : Icons.local_gas_station,
+                          color: _activeFilter == 'moto'
+                              ? Colors.pinkAccent
+                              : Colors.redAccent,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (dist > 0)
+                          Text(
+                            '${(dist / 1000).toStringAsFixed(2)} km',
+                            style: const TextStyle(
+                                fontSize: 14, color: Colors.grey),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// ======================= UI =======================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _buildBody(),
       floatingActionButton: (_lat != null && _lon != null)
           ? Padding(
-        padding: const EdgeInsets.only(bottom: 45, right: 50),
+        padding: const EdgeInsets.only(bottom: 45, right: 16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () async {
-            try {
-              _suppressPoiOnce = true;
+            _suppressPoiOnce = true;
+            if (_lat != null && _lon != null) {
               await _channel.animateCamera(
-                  lat: _lat!, lon: _lon!, zoomLevel: _zoomLevel, durationMs: 300);
-              await _channel.setUserLocation(lat: _lat!, lon: _lon!);
-            } catch (_) {}
+                  lat: _lat!, lon: _lon!, zoomLevel: _zoomLevel);
+            }
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 18, vertical: 15),
             decoration: BoxDecoration(
               color: const Color(0xB3F5F5F5),
               borderRadius: BorderRadius.circular(16),
               boxShadow: const [
-                BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
+                BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 6,
+                    offset: Offset(0, 3)),
               ],
             ),
-            child: const Icon(Icons.gps_fixed, color: Colors.black, size: 28),
+            child: const Icon(Icons.gps_fixed,
+                color: Colors.black, size: 28),
           ),
         ),
       )
           : null,
-      bottomNavigationBar: const BottomAppBarWidget(),
+      bottomNavigationBar: const BottomAppBarWidget(currentIndex: 1),
     );
   }
 
   Widget _buildBody() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (_loading) return const Center(child: CircularProgressIndicator());
     final safeTop = MediaQuery.of(context).padding.top + 12;
-    final safeBottom = MediaQuery.of(context).padding.bottom;
+
     return Stack(
       children: [
         _buildPlatformView(_lat!, _lon!),
@@ -388,100 +454,25 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
               borderRadius: BorderRadius.circular(12),
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Text(_warning!, style: const TextStyle(color: Colors.white)),
+                child: Text(_warning!,
+                    style: const TextStyle(color: Colors.white)),
               ),
             ),
           ),
         /// 상단 필터 버튼
         Positioned(
           top: safeTop + 15,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _filterButton(label: '주유소', value: 'gas'),
-                const SizedBox(width: 12),
-                _filterButton(label: '오토바이', value: 'moto'),
-              ],
-            ),
+          left: 16,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _filterButton(label: '주유소', value: 'gas'),
+              const SizedBox(width: 12),
+              _filterButton(label: '오토바이', value: 'moto'),
+            ],
           ),
         ),
-        /// 하단 POI 패널
-        if (_pois.isNotEmpty)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 80 + kBottomNavigationBarHeight + safeBottom,
-            child: Container(
-              height: 220,
-              margin: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: Colors.pinkAccent, blurRadius: 8)],
-              ),
-              child: ListView.separated(
-                padding: const EdgeInsets.all(12),
-                itemCount: _pois.length,
-                separatorBuilder: (_, __) => const Divider(height: 12),
-                itemBuilder: (_, i) {
-                  final m = _pois[i];
-                  final name = (m['name'] as String?) ?? '-';
-                  final dist = (m['distance'] as double?) ?? 0.0;
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    dense: true,
-                    leading: Icon(
-                      _activeFilter == 'moto'
-                          ? Icons.motorcycle_sharp
-                          : Icons.local_gas_station,
-                      color: _activeFilter == 'moto' ? Colors.pinkAccent : Colors.redAccent,
-                    ),
-                    title: Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
-                    subtitle: dist > 0
-                        ? Text('${(dist / 1000).toStringAsFixed(2)} km',
-                        style: const TextStyle(color: Colors.grey, fontSize: 13))
-                        : null,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Color(0xFFE0E0E0)),
-                    ),
-                    onTap: () async {
-                      final lat = (m['lat'] as num).toDouble();
-                      final lon = (m['lon'] as num).toDouble();
-                      final name = (m['name'] as String?) ?? '';
-                      try {
-                        _suppressPoiOnce = true;
-                        await _channel.animateCamera(
-                            lat: lat, lon: lon, zoomLevel: 16, durationMs: 350);
-                        try {
-                          await _channel.clearMarkers();
-                        } catch (_) {}
-                        await _channel.setMarkers([
-                          {
-                            'id': 999001,
-                            'lat': lat,
-                            'lon': lon,
-                            'title': name,
-                            'type': 'poi',
-                            'color': 'blue',
-                          }
-                        ]);
-                      } catch (_) {}
-                    },
-                  );
-                },
-              ),
-            ),
-          ),
-        /// 하단 중앙 버튼
+        /// 하단 중앙 재생 버튼
         Positioned(
           left: 0,
           right: 0,
@@ -497,7 +488,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     );
   }
 
-  void _onPlayPressed() async {
+  Future<void> _onPlayPressed() async {
     final svc = RideTrackerService.instance;
     await svc.tryRestore();
     if (svc.isActive) {
@@ -521,29 +512,44 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     );
     if (!mounted) return;
     if (result is Map<String, dynamic>) {
-      showTripriderPopup(
-        context,
-        title: '주행 기록',
-        message: '주행 기록 저장 완료',
-        type: PopupType.success,
-      );
+      showTripriderPopup(context,
+          title: '주행 기록', message: '주행 기록 저장 완료', type: PopupType.success);
       try {
         await _channel.removeAllSpotLabel();
       } catch (_) {}
     }
   }
 
+  /// ======================= 위치 스트림 (항상 중앙 고정 + 기본 파란점만 갱신)
   void _startUserLocationUpdates() {
     _userPosSub?.cancel();
+
+    DateTime lastMove = DateTime.fromMillisecondsSinceEpoch(0);
+
     _userPosSub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.best,
-        distanceFilter: 5,
+        distanceFilter: 3,
       ),
     ).listen((pos) async {
-      try {
-        await _channel.setUserLocation(lat: pos.latitude, lon: pos.longitude);
-      } catch (_) {}
+      _lat = pos.latitude;
+      _lon = pos.longitude;
+
+      // ✅ 현재 위치는 오버레이만 업데이트 (마커 사용 금지)
+      await _channel.setUserLocation(lat: _lat!, lon: _lon!);
+
+      // 항상 가운데 유지
+      final now = DateTime.now();
+      if (_followMe && now.difference(lastMove).inMilliseconds > 350) {
+        lastMove = now;
+        await _channel.animateCamera(
+          lat: _lat!,
+          lon: _lon!,
+          zoomLevel: _zoomLevel,
+          durationMs: 300,
+        );
+      }
+      setState(() {}); // 필요 시 UI 갱신
     });
   }
 
@@ -551,9 +557,8 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     final creationParams = <String, dynamic>{
       'lat': lat,
       'lon': lon,
-      'zoomLevel': _zoomLevel,
+      'zoomLevel': _zoomLevel
     };
-
     if (Platform.isAndroid) {
       return AndroidView(
         viewType: 'map-kakao',
@@ -572,137 +577,64 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
 
   void _onPlatformViewCreated(int id) {
     _channel.initChannel(id);
-    _channel.channel.setMethodCallHandler((call) async {
-      if (call.method == 'onLabelTabbed') {
-        final args = Map<String, dynamic>.from(call.arguments as Map);
-        final id = (args['id'] as num?)?.toInt();
-        if (id != null && _labelById.containsKey(id)) {
-          final m = _labelById[id]!;
-          final raw = (m['raw'] as Map?) ?? {};
-          final title = (raw['name']?.toString() ??
-              m['name']?.toString() ??
-              '')
-              .replaceFirst('⛽ ', '');
-          final address = raw['address']?.toString();
-          final phone = raw['phone']?.toString();
-          final url = raw['url']?.toString();
-          if (!mounted) return;
-          showModalBottomSheet(
-            context: context,
-            shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-            builder: (_) => Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
-                  if (address != null)
-                    Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(address)),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    if (phone != null && phone.isNotEmpty)
-                      TextButton.icon(
-                          onPressed: () async {
-                            final uri = Uri.parse('tel:$phone');
-                            if (await canLaunchUrl(uri)) {
-                              await launchUrl(uri);
-                            }
-                          },
-                          icon: const Icon(Icons.call),
-                          label: const Text('전화')),
-                    if (url != null && url.isNotEmpty)
-                      TextButton.icon(
-                          onPressed: () async {
-                            final uri = Uri.parse(url);
-                            if (await canLaunchUrl(uri)) {
-                              await launchUrl(uri,
-                                  mode: LaunchMode.externalApplication);
-                            }
-                          },
-                          icon: const Icon(Icons.link),
-                          label: const Text('상세')),
-                  ]),
-                ],
-              ),
-            ),
-          );
-        }
-      } else if (call.method == 'onCameraIdle') {
-        final args = Map<String, dynamic>.from(call.arguments as Map);
-        final lat = (args['lat'] as num?)?.toDouble();
-        final lon = (args['lon'] as num?)?.toDouble();
-        _lastIdleZoom = (args['zoom'] as num?)?.toInt() ?? _lastIdleZoom;
-        if (lat == null || lon == null) return;
-        _lastIdleLat = lat;
-        _lastIdleLon = lon;
-        _poiDebounce?.cancel();
-        _poiDebounce = Timer(const Duration(milliseconds: 400), () async {
-          if (_lastIdleLat == null || _lastIdleLon == null) return;
-          if (_suppressPoiOnce) {
-            _suppressPoiOnce = false;
-            return;
-          }
-          if (_activeFilter != 'none') {
-            _vm.activeFilter = _activeFilter;
-            await _vm.refreshPois(_lastIdleLat!, _lastIdleLon!);
-            _applyVmPoisToLocal(_lastIdleLat!, _lastIdleLon!);
-            if (_lat != null && _lon != null) {
-              try {
-                await _channel.setUserLocation(lat: _lat!, lon: _lon!);
-              } catch (_) {}
-            }
-          }
-        });
-      }
-    });
   }
 
   void _applyVmPoisToLocal(double lat, double lon) {
     final maps = <Map<String, dynamic>>[];
     int id = 200000;
     for (final p in _vm.pois) {
-      maps.add({'name': p.name, 'lat': p.lat, 'lon': p.lon, 'id': id++});
+      maps.add({
+        'name': p.name,
+        'lat': p.lat,
+        'lon': p.lon,
+        'id': id++,
+      });
     }
     _pois = _withDistance(lat, lon, maps);
     setState(() {});
+  }
 
-    final labels = <Map<String, dynamic>>[];
-    final prefix =
-    (_activeFilter == 'gas') ? '⛽ ' : (_activeFilter == 'moto') ? '🏍️ ' : '';
-    for (final m in maps) {
-      labels.add({
-        'name': '$prefix${m['name']}',
-        'lat': m['lat'],
-        'lon': m['lon'],
-        'id': m['id']
-      });
+  List<Map<String, dynamic>> _withDistance(
+      double lat, double lon, List<Map<String, dynamic>> items) {
+    double haversine(double lat1, double lon1, double lat2, double lon2) {
+      const R = 6371000.0; // m
+      final dLat = (lat2 - lat1) * math.pi / 180.0;
+      final dLon = (lon2 - lon1) * math.pi / 180.0;
+      final a = (math.sin(dLat / 2) * math.sin(dLat / 2)) +
+          math.cos(lat1 * math.pi / 180.0) *
+              math.cos(lat2 * math.pi / 180.0) *
+              (math.sin(dLon / 2) * math.sin(dLon / 2));
+      final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+      return R * c;
     }
-    () async {
-      try {
-        await _channel.setLabels(labels);
-      } catch (_) {}
-      if (_lat != null && _lon != null) {
-        try {
-          await _channel.setUserLocation(lat: _lat!, lon: _lon!);
-        } catch (_) {}
-      }
-    }();
+
+    final out = <Map<String, dynamic>>[];
+    for (final m in items) {
+      final d = haversine(
+        lat,
+        lon,
+        (m['lat'] as num).toDouble(),
+        (m['lon'] as num).toDouble(),
+      );
+      final n = Map<String, dynamic>.from(m);
+      n['distance'] = d;
+      out.add(n);
+    }
+    out.sort((a, b) =>
+    ((a['distance'] as num).compareTo((b['distance'] as num))));
+    return out;
   }
 
   @override
   void dispose() {
-    _posSub?.cancel();
     _userPosSub?.cancel();
     super.dispose();
   }
 }
 
+/// =======================
+/// ✅ 재생 버튼 위젯
+/// =======================
 class _TrackingPlayButton extends StatefulWidget {
   const _TrackingPlayButton({required this.onPressed});
   final VoidCallback onPressed;
@@ -722,18 +654,7 @@ class _TrackingPlayButtonState extends State<_TrackingPlayButton>
   @override
   void initState() {
     super.initState();
-    _loadFlag();
     _svc.addListener(_onSvc);
-  }
-
-  Future<void> _loadFlag() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      setState(() {
-        _trackingActive = prefs.getBool('tracking_active') ?? false;
-        _trackingPaused = prefs.getBool('tracking_paused') ?? false;
-      });
-    } catch (_) {}
   }
 
   @override
@@ -776,6 +697,13 @@ class _TrackingPlayButtonState extends State<_TrackingPlayButton>
               decoration: const BoxDecoration(
                 color: Color(0xFFFF4E6B),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 12,
+                    offset: Offset(0, 6),
+                  ),
+                ],
               ),
               child: Icon(
                 _trackingActive
