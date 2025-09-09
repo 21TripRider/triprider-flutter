@@ -119,7 +119,8 @@ class RentshopList extends StatelessWidget {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: IntrinsicHeight(
+                    child: SizedBox(
+                      height: 140, // ✅ 모든 카드 동일 높이
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -141,6 +142,7 @@ class RentshopList extends StatelessWidget {
                               padding: const EdgeInsets.all(16),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     s['name'] as String,
@@ -148,16 +150,18 @@ class RentshopList extends StatelessWidget {
                                       fontSize: 20,
                                       fontWeight: FontWeight.w700,
                                     ),
+                                    maxLines: 1, // ✅ 길면 말줄임
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 6),
                                   Text(
                                     s['addr'] as String,
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Colors.grey.shade600,
                                     ),
+                                    maxLines: 1, // ✅ 한 줄로 고정
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 12),
                                   Row(
                                     children: [
                                       ...stars(s['rating'] as double),
@@ -215,8 +219,6 @@ class _RentAppBarState extends State<RentAppBar> {
         onPressed: () => Navigator.of(context).pop(),
         icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
       ),
-
     );
   }
 }
-

@@ -39,6 +39,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
 
   // UI interactions
   DateTime? _stopHoldStart; // 종료 길게누름 시작 시간
+  bool _stopPressed = false; // ✅ 눌림 모션 상태
   // UI 색상 스위치(일시정지 상태에 따라 변경)
   Color get _labelColor => svc.isPaused ? const Color(0xFFCCCCCC) : const Color(0xFFB73047);
   Color get _bannerColor => svc.isPaused ? Colors.white : const Color(0xFFFF4E6B);
@@ -110,8 +111,8 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
   Future<void> _ensureMiniMapSynced() async {
     if (!_mapReady || _lat == null || _lon == null) return;
     try {
-      await _channel.setUserLocationVisible(true);
-      await _channel.setUserLocation(lat: _lat!, lon: _lon!);
+      await _channel.setUserLocationVisible(false); // ✅ 기본 파란 점 숨김
+      await _channel.setUserLocation(lat: _lat!, lon: _lon!); // 좌표 동기화(기능 유지)
       await _channel.animateCamera(
         lat: _lat!,
         lon: _lon!,
@@ -294,8 +295,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
   // ======================= Static Map 생성 =======================
 
   // Google Static
-  Future<String?> _buildGoogleStaticMapForPath(
-      List<List<double>> path) async {
+  Future<String?> _buildGoogleStaticMapForPath(List<List<double>> path) async {
     if (path.length < 2) return null;
     final sampled = _sampleForStatic(path, 80);
     final pathParam = sampled
@@ -312,8 +312,8 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     final resp = await http.get(uri);
     if (resp.statusCode != 200 || resp.bodyBytes.isEmpty) return null;
     final dir = await Directory.systemTemp.createTemp('triprider_gstatic');
-    final file = File(
-        '${dir.path}/route_${DateTime.now().millisecondsSinceEpoch}.png');
+    final file =
+    File('${dir.path}/route_${DateTime.now().millisecondsSinceEpoch}.png');
     await file.writeAsBytes(resp.bodyBytes);
     return file.path;
   }
@@ -365,20 +365,18 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       'h': '600',
       'paths': 'color:0x1565C0|width:6|$pts',
     };
-    final uri =
-    Uri.https('dapi.kakao.com', '/v2/maps/staticmap', params);
+    final uri = Uri.https('dapi.kakao.com', '/v2/maps/staticmap', params);
     final resp = await http.get(uri,
         headers: {'Authorization': 'KakaoAK $_kakaoRestApiKey'});
     if (resp.statusCode != 200 || resp.bodyBytes.isEmpty) return null;
     final dir = await Directory.systemTemp.createTemp('triprider_static');
-    final file = File(
-        '${dir.path}/route_${DateTime.now().millisecondsSinceEpoch}.png');
+    final file =
+    File('${dir.path}/route_${DateTime.now().millisecondsSinceEpoch}.png');
     await file.writeAsBytes(resp.bodyBytes);
     return file.path;
   }
 
-  List<List<double>> _sampleForStatic(
-      List<List<double>> src, int maxPoints) {
+  List<List<double>> _sampleForStatic(List<List<double>> src, int maxPoints) {
     if (src.length <= maxPoints) return src;
     final out = <List<double>>[];
     final step = src.length / maxPoints;
@@ -399,8 +397,9 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     if (!_initialized) {
       return Scaffold(
         body: Center(
-          child:
-          _error != null ? Text(_error!) : const CircularProgressIndicator(),
+          child: _error != null
+              ? Text(_error!)
+              : const CircularProgressIndicator(),
         ),
       );
     }
@@ -431,6 +430,14 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                       Positioned.fill(
                         top: padding.top,
                         child: _buildPlatformView(_lat!, _lon!),
+                      ),
+                      // ✅ 미니맵 중앙 커스텀 위치 마커 (하얀 링 + 핑크 코어)
+                      Positioned.fill(
+                        top: padding.top,
+                        child: const IgnorePointer(
+                          ignoring: true,
+                          child: Center(child: _MyLocationDot()),
+                        ),
                       ),
                       // 닫기 버튼(상단 좌측)
                       Positioned(
@@ -465,11 +472,9 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                       children: [
                         const SizedBox(height: 16),
                         Padding(
-                          padding:
-                          const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Row(
-                            mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               _metric(
                                   big: _formatInt(currentKmh),
@@ -539,10 +544,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     return v.round().toString();
   }
 
-  Widget _metric(
-      {required String big,
-        required String unit,
-        required String label}) {
+  Widget _metric({required String big, required String unit, required String label}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -581,8 +583,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     );
   }
 
-  void _togglePause() =>
-      svc.isPaused ? _resumeTracking() : _pauseTracking();
+  void _togglePause() => svc.isPaused ? _resumeTracking() : _pauseTracking();
 
   void _pauseTracking() {
     svc.pause();
@@ -619,34 +620,58 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        // ✅ 종료 버튼: 탭 → 팝업, 길게(2초) → 종료, 눌림 모션
         GestureDetector(
           onTapDown: (_) {
-            _stopHoldStart = DateTime.now();
+            setState(() {
+              _stopPressed = true;
+              _stopHoldStart = DateTime.now();
+            });
           },
-          onTapUp: (_) {
-            if (_stopHoldStart != null) {
-              final held =
-              DateTime.now().difference(_stopHoldStart!);
+          onTapUp: (_) async {
+            final held = (_stopHoldStart != null)
+                ? DateTime.now().difference(_stopHoldStart!)
+                : Duration.zero;
+            setState(() {
+              _stopPressed = false;
               _stopHoldStart = null;
-              if (held >= const Duration(seconds: 2)) {
-                _finishAndPop();
-              }
+            });
+            if (held >= const Duration(seconds: 2)) {
+              await _finishAndPop();
+            } else {
+              // 안내 팝업
+              showTripriderPopup(
+                context,
+                title: "종료 안내",
+                message: "길게 누르면 종료됩니다.",
+                type: PopupType.info,
+              );
             }
           },
           onTapCancel: () {
-            _stopHoldStart = null;
+            setState(() {
+              _stopPressed = false;
+              _stopHoldStart = null;
+            });
           },
-          child: Container(
-            width: 88,
-            height: 88,
-            decoration: const BoxDecoration(
-              color: Color(0xFF1F1F23),
-              shape: BoxShape.circle,
+          child: AnimatedScale(
+            scale: _stopPressed ? 0.94 : 1.0,
+            duration: const Duration(milliseconds: 110),
+            curve: Curves.easeOutCubic,
+            child: Container(
+              width: 88,
+              height: 88,
+              decoration: const BoxDecoration(
+                color: Color(0xFF1F1F23),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.stop, color: Colors.white, size: 36),
             ),
-            child: const Icon(Icons.stop, color: Colors.white, size: 36),
           ),
         ),
         SizedBox(width: gap),
+
+        // ▶️ 재생 버튼
         GestureDetector(
           onTap: _togglePause,
           child: Container(
@@ -656,8 +681,8 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
               color: Color(0xFFFF4E6B),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.play_arrow,
-                color: Colors.white, size: 40),
+            child:
+            const Icon(Icons.play_arrow, color: Colors.white, size: 40),
           ),
         ),
       ],
@@ -669,5 +694,65 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     svc.removeListener(_onSvc);
     _mapPosSub?.cancel(); // 미니맵 follow 스트림 정리
     super.dispose();
+  }
+}
+
+/// ✅ 중앙 커스텀 내 위치 마커 (하얀 링 + 핑크 코어 + 은은한 퍼짐)
+class _MyLocationDot extends StatelessWidget {
+  const _MyLocationDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // 퍼지는 파동
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 1800),
+            curve: Curves.easeOut,
+            builder: (ctx, t, _) {
+              final r = 28.0 * (0.6 + 0.6 * t);
+              final opacity = (1 - t).clamp(0.0, 1.0);
+              return Container(
+                width: r,
+                height: r,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFFFF4F6B).withOpacity(0.20 * opacity),
+                ),
+              );
+            },
+          ),
+          // 하얀 링
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF4F6B).withOpacity(.45),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+          ),
+          // 핑크 코어
+          Container(
+            width: 18,
+            height: 18,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFFFF4F6B),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

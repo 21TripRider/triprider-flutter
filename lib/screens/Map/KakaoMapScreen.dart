@@ -229,11 +229,12 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
           zoomLevel: _zoomLevel,
           durationMs: 350);
 
-      // ✅ 기본 파란 점 오버레이 사용
-      await _channel.setUserLocationVisible(true);
+      // ✅ 기본 파란 점 숨김 (커스텀 마커 사용)
+      await _channel.setUserLocationVisible(false);
+      // 좌표는 계속 동기화(내부 기능 유지)
       await _channel.setUserLocation(lat: pos.latitude, lon: pos.longitude);
 
-      // ✅ 스트림 구독 시작 (항상 중앙 유지 + 점 1개)
+      // ✅ 스트림 구독 시작 (항상 중앙 유지)
       _startUserLocationUpdates();
     } catch (_) {
       setState(() {
@@ -269,16 +270,13 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
         }
       },
       child: Container(
-        padding:
-        const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: active ? Colors.pinkAccent : Colors.white,
           borderRadius: BorderRadius.circular(50),
           boxShadow: const [
             BoxShadow(
-                color: Colors.black26,
-                blurRadius: 8,
-                offset: Offset(0, 4)),
+                color: Colors.black26, blurRadius: 8, offset: Offset(0, 4)),
           ],
         ),
         child: Row(
@@ -357,8 +355,8 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
                     Navigator.pop(context);
                   },
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 25),
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
                     child: Row(
                       children: [
                         Icon(
@@ -415,8 +413,8 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
             }
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 18, vertical: 15),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
             decoration: BoxDecoration(
               color: const Color(0xB3F5F5F5),
               borderRadius: BorderRadius.circular(16),
@@ -444,6 +442,13 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     return Stack(
       children: [
         _buildPlatformView(_lat!, _lon!),
+
+        // ✅ 중앙 커스텀 "내 위치" 마커 (파란 점 대체)
+        const IgnorePointer(
+          ignoring: true,
+          child: Center(child: _MyLocationDot()),
+        ),
+
         if (_warning != null)
           Positioned(
             top: safeTop,
@@ -454,8 +459,8 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
               borderRadius: BorderRadius.circular(12),
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Text(_warning!,
-                    style: const TextStyle(color: Colors.white)),
+                child:
+                Text(_warning!, style: const TextStyle(color: Colors.white)),
               ),
             ),
           ),
@@ -520,7 +525,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     }
   }
 
-  /// ======================= 위치 스트림 (항상 중앙 고정 + 기본 파란점만 갱신)
+  /// ======================= 위치 스트림 (항상 중앙 고정)
   void _startUserLocationUpdates() {
     _userPosSub?.cancel();
 
@@ -535,7 +540,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
       _lat = pos.latitude;
       _lon = pos.longitude;
 
-      // ✅ 현재 위치는 오버레이만 업데이트 (마커 사용 금지)
+      // 좌표 동기화(경로 등 내부 로직 유지용)
       await _channel.setUserLocation(lat: _lat!, lon: _lon!);
 
       // 항상 가운데 유지
@@ -731,5 +736,68 @@ class _TrackingPlayButtonState extends State<_TrackingPlayButton>
       _trackingActive = _svc.isActive;
       _trackingPaused = _svc.isPaused;
     });
+  }
+}
+
+/// =======================
+/// ✅ 중앙 커스텀 내 위치 마커
+/// =======================
+class _MyLocationDot extends StatelessWidget {
+  const _MyLocationDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // 퍼지는 파동
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 1800),
+            curve: Curves.easeOut,
+            onEnd: () {},
+            builder: (ctx, t, _) {
+              final r = 28.0 * (0.6 + 0.6 * t);
+              final opacity = (1 - t).clamp(0.0, 1.0);
+              return Container(
+                width: r,
+                height: r,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFFFF4F6B).withOpacity(0.20 * opacity),
+                ),
+              );
+            },
+          ),
+          // 하얀 링
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF4F6B).withOpacity(.45),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+          ),
+          // 핑크 코어
+          Container(
+            width: 18,
+            height: 18,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFFFF4F6B),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
