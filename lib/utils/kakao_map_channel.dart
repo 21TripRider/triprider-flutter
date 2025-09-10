@@ -18,7 +18,7 @@ class KakaoMapChannel {
       channel.invokeMethod('animateCamera', {
         'lat': lat,
         'lon': lon,
-        'zoomLevel': zoomLevel, // ✅ 네이티브와 키 일치
+        'zoomLevel': zoomLevel,
         'durationMs': durationMs,
       });
 
@@ -30,7 +30,7 @@ class KakaoMapChannel {
       channel.invokeMethod('moveCamera', {
         'lat': lat,
         'lon': lon,
-        'zoomLevel': zoomLevel, // ✅
+        'zoomLevel': zoomLevel,
       });
 
   Future<void> fitBounds({
@@ -111,6 +111,13 @@ class KakaoMapChannel {
   Future<void> setUserLocationVisible(bool visible) async {
     try {
       await channel.invokeMethod('setUserLocationVisible', {'visible': visible});
+    } catch (_) {}
+  }
+
+  /// ✅ 새로 추가: 지도 터치 상호작용 on/off
+  Future<void> setInteractive(bool enabled) async {
+    try {
+      await channel.invokeMethod('setInteractive', {'enabled': enabled});
     } catch (_) {}
   }
 

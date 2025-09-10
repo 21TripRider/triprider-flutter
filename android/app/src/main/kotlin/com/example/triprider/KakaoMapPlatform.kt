@@ -77,6 +77,9 @@ class KakaoMapPlatform(
     private var userStyleRingWhite: LabelStyles? = null   // 하얀 링(디스크)
     private var userStyleCorePink: LabelStyles? = null    // 코어 핑크
 
+    // ▼ 터치 상호작용 제어 (기본: 가능)
+    private var isTouchable: Boolean = true
+
     init {
         methodChannel.setMethodCallHandler(this)
         val inflater = LayoutInflater.from(context)
@@ -85,6 +88,10 @@ class KakaoMapPlatform(
 
     override fun onFlutterViewAttached(flutterView: View) {
         mapView = nativeView.findViewById(R.id.map_kakao)
+
+        // ✅ 지도 터치 차단용 리스너: isTouchable=false면 모든 터치 소비
+        mapView!!.setOnTouchListener { _, _ -> !isTouchable }
+
         mapView!!.start(object : MapLifeCycleCallback() {
             override fun onMapDestroy() {}
             override fun onMapPaused() {}
@@ -237,7 +244,6 @@ class KakaoMapPlatform(
             .setTag(id)
             .setStyles(styleForColor(color))
             .setTexts(LabelTextBuilder().setTexts("\uD83D\uDCCD")) // 📍
-
         kakaoMap?.labelManager?.layer?.addLabel(opt)?.let { markerLabels.add(it) }
     }
 
@@ -482,6 +488,17 @@ class KakaoMapPlatform(
             }
             "removeAllSpotLabel" -> { // ✅ 필터 해제 시 POI 마커 전체 삭제
                 clearMarkersOnly()
+                result.success(null)
+            }
+            // ✅ 새로 추가: 터치 상호작용 on/off
+            "setInteractive" -> {
+                val enabled = call.argument<Boolean>("enabled") ?: true
+                isTouchable = enabled
+                mapView?.setOnTouchListener { _, _ -> !isTouchable }
+                result.success(null)
+            }
+            // ✅ Dart에서 호출해도 에러 안 나게 no-op 처리
+            "setUserLocationVisible" -> {
                 result.success(null)
             }
             else -> result.notImplemented()

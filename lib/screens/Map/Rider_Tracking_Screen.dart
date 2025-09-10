@@ -427,9 +427,13 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                   height: mapHeight + padding.top,
                   child: Stack(
                     children: [
+                      // ✅ 사용자가 드래그/탭하지 못하도록 미니맵 터치 차단
                       Positioned.fill(
                         top: padding.top,
-                        child: _buildPlatformView(_lat!, _lon!),
+                        child: IgnorePointer(
+                          ignoring: true,
+                          child: _buildPlatformView(_lat!, _lon!),
+                        ),
                       ),
                       // ✅ 미니맵 중앙 커스텀 위치 마커 (하얀 링 + 핑크 코어)
                       Positioned.fill(
