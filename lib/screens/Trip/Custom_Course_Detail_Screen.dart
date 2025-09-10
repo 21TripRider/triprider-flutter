@@ -1,13 +1,12 @@
+// lib/screens/Trip/Custom_Course_Detail_Screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:triprider/screens/Trip/Custom_Riding_Course_Screen.dart';
 import 'package:triprider/screens/trip/models.dart';
 
-/// 코스 상세(커스텀) 화면은 '한 화면만' 그린다.
-/// 저장 버튼을 누르면 Navigator로 CustomRidingCourse 화면으로 '전환'한다.
 class CustomCourseDetailScreen extends StatefulWidget {
-  final CoursePreview preview; // 미리보기 데이터(경로/거리/시간/웨이포인트 등)
+  final CoursePreview preview;
 
   const CustomCourseDetailScreen({
     super.key,
@@ -23,18 +22,12 @@ class _CustomCourseDetailScreenState extends State<CustomCourseDetailScreen> {
   GoogleMapController? _map;
 
   void _goToCustomRidingCourse() {
-    // 화면 전환: 현재 화면을 대체하려면 pushReplacement 사용
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => const CustomRidingCourse(),
-      ),
+      MaterialPageRoute(builder: (_) => const CustomRidingCourse()),
     );
-
-    // (선택) 토스트
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('저장 완료')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('저장 완료')));
   }
 
   @override
@@ -45,9 +38,17 @@ class _CustomCourseDetailScreenState extends State<CustomCourseDetailScreen> {
         : LatLng(wps.first.lat, wps.first.lng);
 
     return Scaffold(
+      backgroundColor: Colors.white, // ✅ 전체 흰색
       appBar: AppBar(
         title: const Text('코스 미리보기'),
         centerTitle: true,
+        backgroundColor: Colors.white, // ✅ 상단바 흰색
+        foregroundColor: Colors.black,
+        elevation: 0,
+        bottom: PreferredSize( // ✅ 연한 하단 구분선
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: const Color(0xFFEDEDED)),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios),
           onPressed: () => Navigator.pop(context),
@@ -65,11 +66,9 @@ class _CustomCourseDetailScreenState extends State<CustomCourseDetailScreen> {
                 ),
                 padding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                elevation: 0,
               ),
-              child: const Text(
-                '저장',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+              child: const Text('저장', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -90,7 +89,7 @@ class _CustomCourseDetailScreenState extends State<CustomCourseDetailScreen> {
           ),
           const SizedBox(height: 8),
 
-          // 요약
+          // 요약 (흰색 배경 유지)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
@@ -104,7 +103,7 @@ class _CustomCourseDetailScreenState extends State<CustomCourseDetailScreen> {
             ),
           ),
 
-          // 스텝 리스트
+          // 스텝 리스트 (흰색 배경 유지)
           Expanded(
             child: ListView.separated(
               padding:
@@ -158,9 +157,12 @@ class _StepTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        // ✅ 연한 회색 스트로크
+        border: Border.all(color: const Color(0xFFE6E8EC), width: 1),
+        // 살짝만 그림자
         boxShadow: const [
           BoxShadow(
-            color: Color(0x14000000),
+            color: Color(0x0D000000),
             blurRadius: 6,
             offset: Offset(0, 3),
           ),
@@ -190,10 +192,7 @@ class _StepTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  w.title,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
+                Text(w.title, style: const TextStyle(fontWeight: FontWeight.w700)),
               ],
             ),
           ),

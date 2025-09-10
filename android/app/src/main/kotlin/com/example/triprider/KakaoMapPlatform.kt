@@ -51,21 +51,31 @@ class KakaoMapPlatform(
     private val nativeView: View
     private var mapView: MapView? = null
     private var kakaoMap: KakaoMap? = null
-    // Polyline state (lazy init when first update)
+
+    // Polyline state (as-is)
     private var polylineId: Int = 10001
     private var polylinePoints: MutableList<LatLng> = mutableListOf()
-    private var polyline: Any? = null // hold shape polyline handle if available
+    private var polyline: Any? = null
     private val appContext: Context = context
 
     private var prevCameraPos: CameraPosition? = null
     private var currentZoom: Int = 16
 
-    // ▼▼▼ [추가] 리스트 탭용 "마커 라벨" 관리 전용 상태 ▼▼▼
+    // ▼ POI 마커/라벨 상태
     private val markerLabels: MutableList<com.kakao.vectormap.label.Label> = mutableListOf()
     private var markerStyleBlue: LabelStyles? = null
     private var markerStyleRed: LabelStyles? = null
     private var markerStyleGreen: LabelStyles? = null
-    // ▲▲▲ 추가 끝 ▲▲▲
+
+    // ▼ 사용자 위치 전용 라벨(Glow / Ring / Core)
+    private var userGlowLabel: com.kakao.vectormap.label.Label? = null
+    private var userRingLabel: com.kakao.vectormap.label.Label? = null
+    private var userCoreLabel: com.kakao.vectormap.label.Label? = null
+
+    // ▼ 사용자 위치 스타일
+    private var userStyleGlow: LabelStyles? = null        // 연핑크 글로우
+    private var userStyleRingWhite: LabelStyles? = null   // 하얀 링(디스크)
+    private var userStyleCorePink: LabelStyles? = null    // 코어 핑크
 
     init {
         methodChannel.setMethodCallHandler(this)
@@ -86,8 +96,7 @@ class KakaoMapPlatform(
             override fun onMapReady(map: KakaoMap) {
                 kakaoMap = map
 
-
-                // ▼▼▼ [추가] 마커 색상별 스타일 미리 준비 ▼▼▼
+                // ▼ 마커 색상별 스타일
                 markerStyleBlue = kakaoMap!!.labelManager!!.addLabelStyles(
                     LabelStyles.from(
                         LabelStyle.from()
@@ -109,7 +118,29 @@ class KakaoMapPlatform(
                             .setApplyDpScale(false)
                     )
                 )
-                // ▲▲▲ 추가 끝 ▲▲▲
+
+                // ▼ 사용자 위치(핑크 코어 + 하얀 링 + 핑크 글로우) 스타일
+                userStyleGlow = kakaoMap!!.labelManager!!.addLabelStyles(
+                    LabelStyles.from(
+                        LabelStyle.from()
+                            .setTextStyles(dpToPx(34), 0x44FF4E6B.toInt()) // 연핑크 오라
+                            .setApplyDpScale(false)
+                    )
+                )
+                userStyleRingWhite = kakaoMap!!.labelManager!!.addLabelStyles(
+                    LabelStyles.from(
+                        LabelStyle.from()
+                            .setTextStyles(dpToPx(26), 0xFFFFFFFF.toInt()) // 흰 디스크(링 효과)
+                            .setApplyDpScale(false)
+                    )
+                )
+                userStyleCorePink = kakaoMap!!.labelManager!!.addLabelStyles(
+                    LabelStyles.from(
+                        LabelStyle.from()
+                            .setTextStyles(dpToPx(18), 0xFFFF4E6B.toInt()) // 코어 핑크
+                            .setApplyDpScale(false)
+                    )
+                )
 
                 if (prevCameraPos == null) {
                     moveCamera(
@@ -148,7 +179,6 @@ class KakaoMapPlatform(
     }
 
     override fun getView(): View = nativeView
-
     override fun dispose() {}
 
     private fun dpToPx(dp: Int): Int {
@@ -182,20 +212,19 @@ class KakaoMapPlatform(
         animator.addUpdateListener { a ->
             val t = a.animatedValue as Float
             val izoom = (start.zoomLevel + (end.zoomLevel - start.zoomLevel) * t).toInt()
-            val lat = start.position.latitude + (end.position.latitude - start.position.latitude) * t
-            val lon = start.position.longitude + (end.position.longitude - start.position.longitude) * t
+            val latI = start.position.latitude + (end.position.latitude - start.position.latitude) * t
+            val lonI = start.position.longitude + (end.position.longitude - start.position.longitude) * t
             val pos = CameraPosition.from(
                 CameraPosition.Builder()
                     .setZoomLevel(izoom)
-                    .setPosition(LatLng.from(lat, lon))
+                    .setPosition(LatLng.from(latI, lonI))
             )
             kakaoMap?.moveCamera(CameraUpdateFactory.newCameraPosition(pos))
         }
         animator.start()
     }
 
-
-    // ▼▼▼ [추가] 리스트 탭용 마커(라벨) 유틸 ▼▼▼
+    // ▼ 스타일 선택(POI)
     private fun styleForColor(name: String?): LabelStyles? = when (name?.lowercase()) {
         "red" -> markerStyleRed
         "green" -> markerStyleGreen
@@ -207,25 +236,55 @@ class KakaoMapPlatform(
             .setClickable(true)
             .setTag(id)
             .setStyles(styleForColor(color))
-            // 📍 (U+1F4CD)
-            .setTexts(LabelTextBuilder().setTexts("\uD83D\uDCCD"))
+            .setTexts(LabelTextBuilder().setTexts("\uD83D\uDCCD")) // 📍
 
         kakaoMap?.labelManager?.layer?.addLabel(opt)?.let { markerLabels.add(it) }
     }
 
     private fun clearMarkersOnly() {
         for (lb in markerLabels.toList()) {
-            runCatching {
-                lb.javaClass.getMethod("remove").invoke(lb)
-            }.onFailure {
-                runCatching {
-                    kakaoMap?.labelManager?.layer?.remove(lb)
-                }
-            }
+            runCatching { lb.javaClass.getMethod("remove").invoke(lb) }
+                .onFailure { runCatching { kakaoMap?.labelManager?.layer?.remove(lb) } }
         }
         markerLabels.clear()
     }
-    // ▲▲▲ 추가 끝 ▲▲▲
+
+    // ▼ 사용자 위치 라벨(Glow → Ring → Core) 고정 순서로 항상 재생성
+    private fun upsertUserLabel(lat: Double, lon: Double) {
+        val layer = kakaoMap?.labelManager?.layer ?: return
+        val pos = LatLng.from(lat, lon)
+        val dot = "\u25CF" // ●
+
+        fun removeIfExists(label: com.kakao.vectormap.label.Label?) {
+            if (label == null) return
+            runCatching { label.javaClass.getMethod("remove").invoke(label) }
+                .onFailure { runCatching { layer.remove(label) } }
+        }
+
+        // 순서가 섞이지 않도록 전부 지우고 같은 순서로 다시 추가
+        removeIfExists(userGlowLabel)
+        removeIfExists(userRingLabel)
+        removeIfExists(userCoreLabel)
+
+        userGlowLabel = layer.addLabel(
+            LabelOptions.from(pos)
+                .setClickable(false)
+                .setStyles(userStyleGlow)
+                .setTexts(LabelTextBuilder().setTexts(dot))
+        )
+        userRingLabel = layer.addLabel(
+            LabelOptions.from(pos)
+                .setClickable(false)
+                .setStyles(userStyleRingWhite)
+                .setTexts(LabelTextBuilder().setTexts(dot))
+        )
+        userCoreLabel = layer.addLabel(
+            LabelOptions.from(pos)
+                .setClickable(false)
+                .setStyles(userStyleCorePink)
+                .setTexts(LabelTextBuilder().setTexts(dot))
+        )
+    }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -247,7 +306,11 @@ class KakaoMapPlatform(
                     val target = CameraPosition.from(
                         CameraPosition.Builder()
                             .setZoomLevel(newZoom)
-                            .setPosition(prevCameraPos?.position ?: kakaoMap?.cameraPosition?.position ?: LatLng.from(33.510414,126.491353))
+                            .setPosition(
+                                prevCameraPos?.position
+                                    ?: kakaoMap?.cameraPosition?.position
+                                    ?: LatLng.from(33.510414, 126.491353)
+                            )
                     )
                     kakaoMap?.moveCamera(CameraUpdateFactory.newCameraPosition(target))
                     currentZoom = newZoom
@@ -280,9 +343,9 @@ class KakaoMapPlatform(
                     val fromMethod = builderClass.getMethod("from", MutableList::class.java, Int::class.javaPrimitiveType)
                     val list: MutableList<LatLng> = mutableListOf()
                     pts.forEach { p ->
-                        val lat = (p["lat"] as? Number)?.toDouble() ?: return@forEach
-                        val lon = (p["lon"] as? Number)?.toDouble() ?: return@forEach
-                        list.add(LatLng.from(lat, lon))
+                        val la = (p["lat"] as? Number)?.toDouble() ?: return@forEach
+                        val lo = (p["lon"] as? Number)?.toDouble() ?: return@forEach
+                        list.add(LatLng.from(la, lo))
                     }
                     val bounds = fromMethod.invoke(null, list, padding)
                     val updateFactory = Class.forName("com.kakao.vectormap.camera.CameraUpdateFactory")
@@ -291,7 +354,6 @@ class KakaoMapPlatform(
                     kakaoMap?.moveCamera(update as com.kakao.vectormap.camera.CameraUpdate)
                     result.success(null)
                 } catch (e: Exception) {
-                    // Fallback: move to center & heuristic zoom
                     try {
                         var minLat = 90.0; var maxLat = -90.0; var minLon = 180.0; var maxLon = -180.0
                         listOf(pts).flatten().forEach { p ->
@@ -320,19 +382,17 @@ class KakaoMapPlatform(
                 try {
                     polylinePoints.clear()
                     pts.forEach { p ->
-                        val lat = (p["lat"] as? Number)?.toDouble() ?: return@forEach
-                        val lon = (p["lon"] as? Number)?.toDouble() ?: return@forEach
-                        polylinePoints.add(LatLng.from(lat, lon))
+                        val la = (p["lat"] as? Number)?.toDouble() ?: return@forEach
+                        val lo = (p["lon"] as? Number)?.toDouble() ?: return@forEach
+                        polylinePoints.add(LatLng.from(la, lo))
                     }
 
-                    // Try shape Polyline first (SDK 2.12+)
                     try {
                         val layer = kakaoMap?.shapeManager?.layer
                         if (layer != null) {
                             val optionsClass = Class.forName("com.kakao.vectormap.shape.PolylineOptions")
                             val fromMethod = optionsClass.getMethod("from", MutableList::class.java)
                             val options = fromMethod.invoke(null, polylinePoints)
-                            // try to set width/color if available
                             runCatching {
                                 optionsClass.getMethod("setWidth", Int::class.javaPrimitiveType).invoke(options, dpToPx(4))
                             }
@@ -344,7 +404,6 @@ class KakaoMapPlatform(
                                 val addMethod = layer.javaClass.getMethod("addPolyline", optionsClass)
                                 polyline = addMethod.invoke(layer, options)
                             } else {
-                                // update points
                                 runCatching {
                                     val setMethod = polyline!!::class.java.getMethod("setCoords", MutableList::class.java)
                                     setMethod.invoke(polyline, polylinePoints)
@@ -360,7 +419,6 @@ class KakaoMapPlatform(
                         }
                     } catch (_: Exception) {}
 
-                    // Fallback: no-op to avoid re-adding text labels
                     result.success(null)
                 } catch (e: Exception) {
                     result.error("130", "METHOD ERROR", "updatePolyline error")
@@ -379,25 +437,39 @@ class KakaoMapPlatform(
                 val lon = call.argument<Double>("lon")
                 try {
                     if (lat != null && lon != null) {
-                        // 사용자 위치는 Dart 쪽에서 처리하므로 여기서는 아무것도 하지 않음
+                        // ✅ 사용자 위치 마커(Glow + Ring + Core) 갱신 — 순서 고정
+                        upsertUserLabel(lat, lon)
                     }
                     result.success(null)
                 } catch (e: Exception) {
                     result.error("170", "METHOD ERROR", "setUserLocation error")
                 }
             }
-            // ▼▼▼ [추가] 마커 API 엔드포인트 ▼▼▼
+            "setLabels" -> {
+                val items = call.argument<List<Map<String, Any>>>("labels") ?: emptyList()
+                try {
+                    clearMarkersOnly()
+                    items.forEach { m ->
+                        val la = (m["lat"] as? Number)?.toDouble() ?: return@forEach
+                        val lo = (m["lon"] as? Number)?.toDouble() ?: return@forEach
+                        val id  = (m["id"] as? Number)?.toInt() ?: 0
+                        addMarker(la, lo, id, "blue")
+                    }
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("190", "METHOD ERROR", "setLabels error")
+                }
+            }
             "setMarkers" -> {
                 val items = call.argument<List<Map<String, Any>>>("markers") ?: emptyList()
                 try {
-                    // 요청마다 이전 마커만 정리 (POI 라벨은 건드리지 않음)
                     clearMarkersOnly()
                     items.forEach { m ->
-                        val lat = (m["lat"] as? Number)?.toDouble() ?: return@forEach
-                        val lon = (m["lon"] as? Number)?.toDouble() ?: return@forEach
+                        val la = (m["lat"] as? Number)?.toDouble() ?: return@forEach
+                        val lo = (m["lon"] as? Number)?.toDouble() ?: return@forEach
                         val id  = (m["id"] as? Number)?.toInt() ?: 0
                         val color = (m["color"] as? String)
-                        addMarker(lat, lon, id, color)
+                        addMarker(la, lo, id, color)
                     }
                     result.success(null)
                 } catch (e: Exception) {
@@ -408,7 +480,10 @@ class KakaoMapPlatform(
                 clearMarkersOnly()
                 result.success(null)
             }
-            // ▲▲▲ 추가 끝 ▲▲▲
+            "removeAllSpotLabel" -> { // ✅ 필터 해제 시 POI 마커 전체 삭제
+                clearMarkersOnly()
+                result.success(null)
+            }
             else -> result.notImplemented()
         }
     }

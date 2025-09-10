@@ -288,14 +288,6 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
             ),
         ],
       ),
-      floatingActionButton:
-      _route.isEmpty
-          ? null
-          : FloatingActionButton.extended(
-        onPressed: _fitBounds,
-        icon: const Icon(Icons.center_focus_strong),
-        label: const Text('전체 보기'),
-      ),
     );
   }
 }

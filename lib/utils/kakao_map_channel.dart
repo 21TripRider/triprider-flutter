@@ -1,4 +1,3 @@
-// lib/utils/kakao_map_channel.dart
 import 'package:flutter/services.dart';
 
 /// Kakao Map platform channel wrapper
@@ -19,7 +18,7 @@ class KakaoMapChannel {
       channel.invokeMethod('animateCamera', {
         'lat': lat,
         'lon': lon,
-        'zoom': zoomLevel,
+        'zoomLevel': zoomLevel, // ✅ 네이티브와 키 일치
         'durationMs': durationMs,
       });
 
@@ -31,7 +30,7 @@ class KakaoMapChannel {
       channel.invokeMethod('moveCamera', {
         'lat': lat,
         'lon': lon,
-        'zoom': zoomLevel,
+        'zoomLevel': zoomLevel, // ✅
       });
 
   Future<void> fitBounds({
@@ -120,14 +119,12 @@ class KakaoMapChannel {
     for (final m in markers) {
       final title = (m['title'] as String?) ?? '';
       final type = (m['type'] as String?) ?? 'poi';
-      final prefix =
-      (type == 'start') ? '🔰 ' : (type == 'end') ? '🏁 ' : '📍 ';
+      final prefix = (type == 'start') ? '🔰 ' : (type == 'end') ? '🏁 ' : '📍 ';
       labels.add({
         'name': '$prefix$title',
         'lat': (m['lat'] as num).toDouble(),
         'lon': (m['lon'] as num).toDouble(),
-        'id': (m['id'] as num?)?.toInt() ??
-            DateTime.now().millisecondsSinceEpoch,
+        'id': (m['id'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
       });
     }
     return setLabels(labels);

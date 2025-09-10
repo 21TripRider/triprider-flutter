@@ -99,8 +99,7 @@ void showTripriderPopup(
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.sports_motorsports_rounded,
-                              color: Colors.pink),
+                          Icon(Icons.sports_motorsports_rounded, color: Colors.pink),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -115,8 +114,7 @@ void showTripriderPopup(
                         ],
                       ),
                       const SizedBox(height: 10),
-                      const Divider(
-                          height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+                      const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
                       const SizedBox(height: 10),
                       Text(
                         message,
@@ -173,10 +171,9 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
   static const String _kakaoRestApiKey = '471ee3eec0b9d8a5fc4eb86fb849e524';
   late final KakaoLocalApi _api = KakaoLocalApi(_kakaoRestApiKey);
   late final MapController _mapController = MapController(_channel);
-  late final MapViewModel _vm =
-  MapViewModel(api: _api, controller: _mapController);
+  late final MapViewModel _vm = MapViewModel(api: _api, controller: _mapController);
 
-  // follow-me 모드
+  // ▶️ 사용자의 위치가 바뀌면 지도가 따라가도록 유지
   final bool _followMe = true;
 
   @override
@@ -215,7 +212,8 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
       }
 
       final pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+        desiredAccuracy: LocationAccuracy.high,
+      );
 
       setState(() {
         _lat = pos.latitude;
@@ -224,17 +222,17 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
 
       // ✅ 초기 카메라 중앙 이동
       await _channel.animateCamera(
-          lat: pos.latitude,
-          lon: pos.longitude,
-          zoomLevel: _zoomLevel,
-          durationMs: 350);
+        lat: pos.latitude,
+        lon: pos.longitude,
+        zoomLevel: _zoomLevel,
+        durationMs: 350,
+      );
 
-      // ✅ 기본 파란 점 숨김 (커스텀 마커 사용)
+      // ✅ 기본 파란 점 숨김(네이티브 위치 라벨만 사용)
       await _channel.setUserLocationVisible(false);
-      // 좌표는 계속 동기화(내부 기능 유지)
       await _channel.setUserLocation(lat: pos.latitude, lon: pos.longitude);
 
-      // ✅ 스트림 구독 시작 (항상 중앙 유지)
+      // ✅ 위치 스트림 시작
       _startUserLocationUpdates();
     } catch (_) {
       setState(() {
@@ -254,6 +252,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
             _pois = [];
           });
           try {
+            // ✅ 네이티브에서 POI 마커 전체 제거
             await _channel.removeAllSpotLabel();
           } catch (_) {}
           return;
@@ -266,7 +265,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
         if (_lat != null && _lon != null) {
           await _vm.refreshPois(_lat!, _lon!);
           _applyVmPoisToLocal(_lat!, _lon!);
-          _showPoiBottomSheet(); // ✅ 리스트 바텀시트 표시
+          _showPoiBottomSheet(); // 리스트 바텀시트 표시
         }
       },
       child: Container(
@@ -275,8 +274,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
           color: active ? Colors.pinkAccent : Colors.white,
           borderRadius: BorderRadius.circular(50),
           boxShadow: const [
-            BoxShadow(
-                color: Colors.black26, blurRadius: 8, offset: Offset(0, 4)),
+            BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4)),
           ],
         ),
         child: Row(
@@ -322,8 +320,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
             return ListView.separated(
               controller: controller,
               itemCount: _pois.length,
-              separatorBuilder: (_, __) => const Divider(
-                  height: 1, thickness: 1, color: Color(0xFFE0E0E0)),
+              separatorBuilder: (_, __) => const Divider(height: 1, thickness: 1, color: Color(0xFFE0E0E0)),
               itemBuilder: (_, i) {
                 final m = _pois[i];
                 final name = (m['name'] as String?) ?? '-';
@@ -335,7 +332,8 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
                     final lon = (m['lon'] as num).toDouble();
                     _suppressPoiOnce = true;
                     await _channel.animateCamera(
-                        lat: lat, lon: lon, zoomLevel: 16, durationMs: 350);
+                      lat: lat, lon: lon, zoomLevel: 16, durationMs: 350,
+                    );
 
                     // ✅ POI만 마커로 표시
                     try {
@@ -352,36 +350,29 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
                       }
                     ]);
 
-                    Navigator.pop(context);
+                    if (mounted) Navigator.pop(context);
                   },
                   child: Padding(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
                     child: Row(
                       children: [
                         Icon(
-                          _activeFilter == 'moto'
-                              ? Icons.motorcycle
-                              : Icons.local_gas_station,
-                          color: _activeFilter == 'moto'
-                              ? Colors.pinkAccent
-                              : Colors.redAccent,
+                          _activeFilter == 'moto' ? Icons.motorcycle : Icons.local_gas_station,
+                          color: _activeFilter == 'moto' ? Colors.pinkAccent : Colors.redAccent,
                           size: 22,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             name,
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w500),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (dist > 0)
                           Text(
                             '${(dist / 1000).toStringAsFixed(2)} km',
-                            style: const TextStyle(
-                                fontSize: 14, color: Colors.grey),
+                            style: const TextStyle(fontSize: 14, color: Colors.grey),
                           ),
                       ],
                     ),
@@ -409,24 +400,20 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
             _suppressPoiOnce = true;
             if (_lat != null && _lon != null) {
               await _channel.animateCamera(
-                  lat: _lat!, lon: _lon!, zoomLevel: _zoomLevel);
+                lat: _lat!, lon: _lon!, zoomLevel: _zoomLevel,
+              );
             }
           },
           child: Container(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
             decoration: BoxDecoration(
               color: const Color(0xB3F5F5F5),
               borderRadius: BorderRadius.circular(16),
               boxShadow: const [
-                BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 6,
-                    offset: Offset(0, 3)),
+                BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
               ],
             ),
-            child: const Icon(Icons.gps_fixed,
-                color: Colors.black, size: 28),
+            child: const Icon(Icons.gps_fixed, color: Colors.black, size: 28),
           ),
         ),
       )
@@ -443,11 +430,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
       children: [
         _buildPlatformView(_lat!, _lon!),
 
-        // ✅ 중앙 커스텀 "내 위치" 마커 (파란 점 대체)
-        const IgnorePointer(
-          ignoring: true,
-          child: Center(child: _MyLocationDot()),
-        ),
+        // ❌ 중앙 고정 오버레이 위치 마커 제거(네이티브 라벨만 사용)
 
         if (_warning != null)
           Positioned(
@@ -459,11 +442,11 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
               borderRadius: BorderRadius.circular(12),
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child:
-                Text(_warning!, style: const TextStyle(color: Colors.white)),
+                child: Text(_warning!, style: const TextStyle(color: Colors.white)),
               ),
             ),
           ),
+
         /// 상단 필터 버튼
         Positioned(
           top: safeTop + 15,
@@ -477,6 +460,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
             ],
           ),
         ),
+
         /// 하단 중앙 재생 버튼
         Positioned(
           left: 0,
@@ -525,7 +509,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     }
   }
 
-  /// ======================= 위치 스트림 (항상 중앙 고정)
+  /// ======================= 위치 스트림 (사용자 위치 바뀌면 지도 따라감)
   void _startUserLocationUpdates() {
     _userPosSub?.cancel();
 
@@ -540,19 +524,21 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
       _lat = pos.latitude;
       _lon = pos.longitude;
 
-      // 좌표 동기화(경로 등 내부 로직 유지용)
+      // 좌표 동기화 → 네이티브 사용자 라벨 이동
       await _channel.setUserLocation(lat: _lat!, lon: _lon!);
 
-      // 항상 가운데 유지
-      final now = DateTime.now();
-      if (_followMe && now.difference(lastMove).inMilliseconds > 350) {
-        lastMove = now;
-        await _channel.animateCamera(
-          lat: _lat!,
-          lon: _lon!,
-          zoomLevel: _zoomLevel,
-          durationMs: 300,
-        );
+      // 사용자 위치가 바뀔 때만 카메라 따라가게
+      if (_followMe) {
+        final now = DateTime.now();
+        if (now.difference(lastMove).inMilliseconds > 350) {
+          lastMove = now;
+          await _channel.animateCamera(
+            lat: _lat!,
+            lon: _lon!,
+            zoomLevel: _zoomLevel,
+            durationMs: 300,
+          );
+        }
       }
       setState(() {}); // 필요 시 UI 갱신
     });
@@ -562,7 +548,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     final creationParams = <String, dynamic>{
       'lat': lat,
       'lon': lon,
-      'zoomLevel': _zoomLevel
+      'zoomLevel': _zoomLevel,
     };
     if (Platform.isAndroid) {
       return AndroidView(
@@ -588,19 +574,17 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
     final maps = <Map<String, dynamic>>[];
     int id = 200000;
     for (final p in _vm.pois) {
-      maps.add({
-        'name': p.name,
-        'lat': p.lat,
-        'lon': p.lon,
-        'id': id++,
-      });
+      maps.add({'name': p.name, 'lat': p.lat, 'lon': p.lon, 'id': id++});
     }
     _pois = _withDistance(lat, lon, maps);
     setState(() {});
   }
 
   List<Map<String, dynamic>> _withDistance(
-      double lat, double lon, List<Map<String, dynamic>> items) {
+      double lat,
+      double lon,
+      List<Map<String, dynamic>> items,
+      ) {
     double haversine(double lat1, double lon1, double lat2, double lon2) {
       const R = 6371000.0; // m
       final dLat = (lat2 - lat1) * math.pi / 180.0;
@@ -625,8 +609,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
       n['distance'] = d;
       out.add(n);
     }
-    out.sort((a, b) =>
-    ((a['distance'] as num).compareTo((b['distance'] as num))));
+    out.sort((a, b) => ((a['distance'] as num).compareTo((b['distance'] as num))));
     return out;
   }
 
@@ -740,7 +723,7 @@ class _TrackingPlayButtonState extends State<_TrackingPlayButton>
 }
 
 /// =======================
-/// ✅ 중앙 커스텀 내 위치 마커
+/// ✅ (미사용) 중앙 커스텀 내 위치 마커 컴포넌트 (보관)
 /// =======================
 class _MyLocationDot extends StatelessWidget {
   const _MyLocationDot();
@@ -753,12 +736,10 @@ class _MyLocationDot extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // 퍼지는 파동
           TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: 1),
             duration: const Duration(milliseconds: 1800),
             curve: Curves.easeOut,
-            onEnd: () {},
             builder: (ctx, t, _) {
               final r = 28.0 * (0.6 + 0.6 * t);
               final opacity = (1 - t).clamp(0.0, 1.0);
@@ -772,7 +753,6 @@ class _MyLocationDot extends StatelessWidget {
               );
             },
           ),
-          // 하얀 링
           Container(
             width: 26,
             height: 26,
@@ -787,7 +767,6 @@ class _MyLocationDot extends StatelessWidget {
               ],
             ),
           ),
-          // 핑크 코어
           Container(
             width: 18,
             height: 18,

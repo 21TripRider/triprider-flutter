@@ -16,6 +16,7 @@ import 'package:triprider/screens/MyPage/PrivacyPolicyScreen.dart';
 import 'package:triprider/screens/MyPage/Record_Screen.dart';
 import 'package:triprider/screens/MyPage/Save_Course_Screen.dart';
 import 'package:triprider/screens/MyPage/TermsOfServiceScreen.dart';
+import 'package:triprider/screens/MyPage/DeleteAccountDialog.dart';
 import 'package:triprider/screens/MyPage/LogoutScreen.dart';
 import 'package:triprider/widgets/Bottom_App_Bar.dart';
 
@@ -396,7 +397,7 @@ class _MypageScreenState extends State<MypageScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: Colors.grey[200],
+      backgroundColor: Colors.white,
       appBar: MyPage_AppBar(
         titleText: _loading ? '...' : _nickname,
         onEditPressed: _openEditSheet,
@@ -439,14 +440,14 @@ class MyPage_AppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: Colors.transparent,
       elevation: 0,
       automaticallyImplyLeading: false,
-      title: Text(titleText, style: const TextStyle(color: Colors.black)),
+      title: Text(titleText, style: const TextStyle(color: Colors.white)),
       actions: [
         IconButton(
           onPressed: onEditPressed,
           icon: const Icon(
             Icons.drive_file_rename_outline,
             size: 30,
-            color: Colors.black,
+            color: Colors.white,
           ),
         ),
         const SizedBox(width: 10),
@@ -564,7 +565,7 @@ class MyPage_top extends StatelessWidget {
           const SizedBox(height: 20),
           Text(intro,
               style: const TextStyle(
-                  color: Colors.black, fontSize: 19, fontWeight: FontWeight.w400)),
+                  color: Colors.white, fontSize: 19, fontWeight: FontWeight.w400)),
 
           const SizedBox(height: 16),
         ],
@@ -588,6 +589,7 @@ class MyPage_Bottom extends StatelessWidget {
         _buildMenuItem(context, '개인정보처리방침', const PrivacyPolicyScreen()),
         _buildMenuItem(context, '이용약관', const TermsOfServiceScreen()),
         _buildMenuItem(context, '로그아웃', const LogoutScreen()),
+        _buildMenuItem(context, '회원탈퇴', const DeleteAccountDialog()),
       ],
     );
   }

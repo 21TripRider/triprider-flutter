@@ -38,4 +38,3 @@ class KakaoMapFactory(
         return KakaoMapPlatform(context, creationParams, messenger, id)
     }
 }
-

@@ -1,3 +1,4 @@
+//lib/screens/Trip/Place_Pick_Screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -204,199 +205,208 @@ class _PlacePickScreenState extends State<PlacePickScreen>
       appBar: AppBar(
         title: const Text('장소 선택'),
         automaticallyImplyLeading: false,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back_ios),
         ),
         actions: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.help_outline, size: 20, color: Colors.grey),
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (ctx) {
-                      return Dialog(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: const [
-                                  Icon(Icons.route, color: Colors.pinkAccent, size: 28),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    '최단거리 모드 안내',
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              const Text('• ON: 선택한 장소들을 최적화하여\n   최단 경로 순서대로 코스를 생성합니다.',
-                                  style: TextStyle(fontSize: 15, height: 1.5)),
-                              const SizedBox(height: 8),
-                              const Text('• OFF: 사용자가 선택한 순서를 그대로 반영합니다.',
-                                  style: TextStyle(fontSize: 15, height: 1.5)),
-                              const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Color(0xFFFFEBEE),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Row(
-                                  children: [
-                                    Icon(Icons.info_outline, color: Colors.pinkAccent, size: 20),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        '두 곳 이상 선택해야 코스를 미리볼 수 있습니다.',
-                                        style: TextStyle(fontSize: 14, color: Colors.black87),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.pinkAccent,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  onPressed: () => Navigator.pop(ctx),
-                                  child: const Text('확인'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-              const Text('최단거리', style: TextStyle(fontSize: 13)),
-              Switch(
-                value: _optimize,
-                onChanged: (v) => setState(() => _optimize = v),
-                activeColor: Colors.white,
-                activeTrackColor: Colors.amberAccent,
-                inactiveThumbColor: Colors.white,
-                inactiveTrackColor: Colors.grey,
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.pinkAccent,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  elevation: 3,
-                ),
-                onPressed: _preview,
-                child: const Text(
-                  '완료',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.0),
-                ),
-              ),
-              const SizedBox(width: 12),
-            ],
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF4E6B),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              elevation: 0,
+            ),
+            onPressed: _preview,
+            child: const Text(
+              '완료',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+            ),
           ),
+          const SizedBox(width: 12),
         ],
       ),
+      backgroundColor: Colors.white,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
         children: [
-          // 카테고리 버튼(Chip)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: List.generate(widget.options.length, (i) {
-                final selected = i == _selectedIndex;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(widget.options[i].label),
-                    selected: selected,
-                    onSelected: (_) {
-                      setState(() {
-                        _selectedIndex = i;
-                        _tab.index = i;
-                        _loadTab(i);
-                      });
-                    },
-                    selectedColor: Colors.pinkAccent,
-                    labelStyle: TextStyle(
+        // 카테고리 버튼(Chip)
+        SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: List.generate(widget.options.length, (i) {
+            final selected = i == _selectedIndex;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedIndex = i;
+                    _tab.index = i;
+                    _loadTab(i);
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selected ? const Color(0xFFFF4E6B) : const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    widget.options[i].label,
+                    style: TextStyle(
                       color: selected ? Colors.white : Colors.black87,
                       fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                     ),
-                    backgroundColor: Colors.grey.shade200,
                   ),
-                );
-              }),
-            ),
-          ),
-          SizedBox(
-            height: 220,
-            child: GoogleMap(
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+      SizedBox(
+          height: 220,
+          child: GoogleMap(
               initialCameraPosition: const CameraPosition(target: _jeju, zoom: 10.8),
               onMapCreated: (c) => _map = c,
               markers: {
-                ..._picked.asMap().entries.map((e) {
-                  final idx = e.key + 1;
-                  final p = e.value;
-                  return Marker(
-                    markerId: MarkerId('p$idx'),
-                    position: LatLng(p.lat, p.lng),
-                    infoWindow: InfoWindow(title: '$idx. ${p.title}', snippet: p.addr),
-                  );
-                }),
-              },
-              polylines: _buildPolyline(),
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: false,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: TabBarView(
-              controller: _tab,
-              physics: const NeverScrollableScrollPhysics(), // ⛔
-              children: List.generate(widget.options.length, (i) {
-                final list = _results[i] ?? [];
-                if (list.isEmpty) {
-                  return const Center(child: Text('검색 결과가 없습니다.'));
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  itemCount: list.length,
-                  separatorBuilder: (_, __) => const Divider(height: 16, thickness: 0.7),
-                  itemBuilder: (_, idx) {
-                    final p = list[idx];
-                    final isPicked = _picked.any(
-                          (e) => (e.contentId ?? e.title) == (p.contentId ?? p.title),
-                    );
-                    return _PlaceTile(
-                      place: p,
-                      picked: isPicked,
-                      onAdd: () => _add(p),
-                      onRemove: () => _remove(p),
-                    );
-                  },
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
+              ..._picked.asMap().entries.map((e) {
+            final idx = e.key + 1;
+            final p = e.value;
+            return Marker(
+              markerId: MarkerId('p$idx'),
+              position: LatLng(p.lat, p.lng),
+              infoWindow: InfoWindow(title: '$idx. ${p.title}', snippet: p.addr),
+            );
+          }),
+          },
+          polylines: _buildPolyline(),
+      myLocationButtonEnabled: false,
+      zoomControlsEnabled: false,
+    ),
+    ),
+    const SizedBox(height: 8),
+    // 컨트롤 바 (최단거리 토글 + 물음표 아이콘)
+    Container(
+    color: Colors.white,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+    child: Row(
+    children: [
+    const Text('최단거리', style: TextStyle(fontSize: 13)),
+    const SizedBox(width: 8),
+    _CustomSwitch(
+    value: _optimize,
+    onChanged: (v) => setState(() => _optimize = v),
+    activeColor: Colors.white,
+    activeTrackColor: Colors.blue,
+    inactiveThumbColor: Colors.white,
+    inactiveTrackColor: const Color(0xFFD9D9D9),
+    ),
+    const Spacer(),
+    IconButton(
+    icon: const Icon(Icons.help_outline, size: 20, color: Colors.grey),
+    onPressed: () {
+    showDialog(
+    context: context,
+    builder: (ctx) {
+    return Dialog(
+    backgroundColor: Colors.white,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    child: Padding(
+    padding: const EdgeInsets.all(20),
+    child: Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+    const Text(
+    '최단거리 모드 안내',
+    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+    ),
+    const SizedBox(height: 16),
+    const Text('• ON: 선택한 장소들을 최적화하여\n   최단 경로 순서대로 코스를 생성합니다.',
+    style: TextStyle(fontSize: 15, height: 1.5)),
+    const SizedBox(height: 8),
+    const Text('• OFF: 사용자가 선택한 순서를 그대로 반영합니다.',
+    style: TextStyle(fontSize: 15, height: 1.5)),
+    const SizedBox(height: 12),
+    Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+    color: Color(0xFFFFEBEE),
+    borderRadius: BorderRadius.circular(12),
+    ),
+    child: const Row(
+    children: [
+    Icon(Icons.info_outline, color: Colors.pinkAccent, size: 20),
+    SizedBox(width: 8),
+    Expanded(
+    child: Text(
+    '두 곳 이상 선택해야 코스를 미리볼 수 있습니다.',
+    style: TextStyle(fontSize: 14, color: Colors.black87),
+    ),
+    ),
+    ],
+    ),
+    ),
+    const SizedBox(height: 20),
+    Align(
+    alignment: Alignment.centerRight,
+    child: TextButton(
+    onPressed: () => Navigator.pop(ctx),
+    child: const Text(
+    '확인',
+    style: TextStyle(color: Colors.black87),
+    ),
+    ),
+    ),
+    ],
+    ),
+    ),
+    );
+    },
+    );
+    },
+    ),
+    ],
+    ),
+    ),
+    Expanded(
+    child: TabBarView(
+    controller: _tab,
+    physics: const NeverScrollableScrollPhysics(), // ⛔
+    children: List.generate(widget.options.length, (i) {
+    final list = _results[i] ?? [];
+    if (list.isEmpty) {
+    return const Center(child: Text('검색 결과가 없습니다.'));
+    }
+    return ListView.separated(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    itemCount: list.length,
+    separatorBuilder: (_, __) => const Divider(height: 16, thickness: 0.7),
+    itemBuilder: (_, idx) {
+    final p = list[idx];
+    final isPicked = _picked.any(
+    (e) => (e.contentId ?? e.title) == (p.contentId ?? p.title),
+    );
+    return _PlaceTile(
+    place: p,
+    picked: isPicked,
+    onAdd: () => _add(p),
+    onRemove: () => _remove(p),
+    );
+    },
+    );
+    }),
+    ),
+    ),
+    ],
+    ),
     );
   }
 
@@ -476,10 +486,11 @@ class _PlaceTile extends StatelessWidget {
               ? ElevatedButton.icon(
             onPressed: onRemove,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
+              backgroundColor: const Color(0xFFFF4E6B),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              elevation: 0,
             ),
             icon: const Icon(Icons.remove, size: 16),
             label: const Text('제거'),
@@ -489,8 +500,11 @@ class _PlaceTile extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              elevation: 0,
             ),
             icon: const Icon(Icons.add, size: 16),
             label: const Text('추가'),
@@ -538,7 +552,135 @@ class _PlaceTile extends StatelessWidget {
 }
 
 /// ===================================================================
-/// ✅ “두 곳 이상 선택해 주세요” 전용 팝업 (다른 디자인, 중상단)
+/// ✅ 커스텀 토글 스위치 (스트로크 색상 변경 가능)
+/// ===================================================================
+class _CustomSwitch extends StatefulWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final Color activeColor;
+  final Color activeTrackColor;
+  final Color inactiveThumbColor;
+  final Color inactiveTrackColor;
+
+  const _CustomSwitch({
+    required this.value,
+    required this.onChanged,
+    required this.activeColor,
+    required this.activeTrackColor,
+    required this.inactiveThumbColor,
+    required this.inactiveTrackColor,
+  });
+
+  @override
+  State<_CustomSwitch> createState() => _CustomSwitchState();
+}
+
+class _CustomSwitchState extends State<_CustomSwitch>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 250),
+      vsync: this,
+    );
+    _animation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+
+    if (widget.value) {
+      _animationController.value = 1.0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(_CustomSwitch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value) {
+      if (widget.value) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => widget.onChanged(!widget.value),
+      child: AnimatedBuilder(
+        animation: _animation,
+        builder: (context, child) {
+          final trackColor = Color.lerp(
+            widget.inactiveTrackColor,
+            widget.activeTrackColor,
+            _animation.value,
+          )!;
+          final thumbColor = Color.lerp(
+            widget.inactiveThumbColor,
+            widget.activeColor,
+            _animation.value,
+          )!;
+
+          return Container(
+            width: 52,
+            height: 32,
+            decoration: BoxDecoration(
+              color: trackColor,
+              borderRadius: BorderRadius.circular(16),
+              border: widget.value ? Border.all(
+                color: Colors.grey.withOpacity(0.2),
+                width: 0.5,
+              ) : null,
+            ),
+            child: Stack(
+              children: [
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOutCubic,
+                  left: _animation.value * 20 + 2,
+                  top: 2,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: thumbColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// ===================================================================
+/// ✅ "두 곳 이상 선택해 주세요" 전용 팝업 (다른 디자인, 중상단)
 /// - 라이트 옐로우 카드 + 앰버 경고 아이콘
 /// - 이 파일 안에 포함 (새 파일 X)
 /// ===================================================================

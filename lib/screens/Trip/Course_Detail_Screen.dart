@@ -90,18 +90,18 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title =
-    _isPreview ? '코스 미리보기' : (widget.view?.title ?? '여행 코스');
+    final title = _isPreview ? '코스 미리보기' : (widget.view?.title ?? '여행 코스');
     final km = (_isPreview ? widget.preview!.distanceKm : widget.view!.distanceKm)
         .toStringAsFixed(1);
-    final min =
-    _isPreview ? widget.preview!.durationMin : widget.view!.durationMin;
+    final min = _isPreview ? widget.preview!.durationMin : widget.view!.durationMin;
 
     final center = _wps.isEmpty
         ? const LatLng(33.3846, 126.5535)
         : LatLng(_wps.first.lat, _wps.first.lng);
 
     return Scaffold(
+      // ✅ 전체 배경을 강제로 흰색 고정
+      backgroundColor: Colors.white,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         leading: IconButton(
@@ -110,6 +110,14 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
         ),
         centerTitle: true,
         title: Text(title),
+        // ✅ 상단바도 흰색 / 검은 글씨, 얇은 하단 구분선
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: const Color(0xFFEDEDED)),
+        ),
         actions: [
           if (_isPreview)
             Padding(
@@ -121,8 +129,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 ),
                 onPressed: _saving ? null : _saveAndGo,
                 child: _saving
@@ -130,10 +137,14 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
-                    : const Text('저장',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                    : const Text(
+                  '저장',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
         ],
@@ -154,27 +165,32 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
           ),
           const SizedBox(height: 8),
 
-          // 요약
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Text(
-                  '총 $km km / 약 $min 분',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ],
+          // 요약 (흰색 배경 유지)
+          Container(
+            color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Text(
+                    '총 $km km / 약 $min 분',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
             ),
           ),
 
-          // 스텝 리스트
+          // 스텝 리스트 (흰색 배경 유지)
           Expanded(
-            child: ListView.separated(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: _wps.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (_, i) => _StepTile(i: i + 1, w: _wps[i]),
+            child: Container(
+              color: Colors.white,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                itemCount: _wps.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (_, i) => _StepTile(i: i + 1, w: _wps[i]),
+              ),
             ),
           ),
         ],
@@ -221,9 +237,15 @@ class _StepTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        // ✅ 연한 회색 스트로크 추가
+        border: Border.all(color: const Color(0xFFE6E8EC), width: 1),
+        // (원래 그림자는 유지하되 아주 연하게)
         boxShadow: const [
           BoxShadow(
-              color: Color(0x14000000), blurRadius: 6, offset: Offset(0, 3)),
+            color: Color(0x14000000),
+            blurRadius: 6,
+            offset: Offset(0, 3),
+          ),
         ],
       ),
       child: Row(
@@ -258,7 +280,6 @@ class _StepTile extends StatelessWidget {
   }
 }
 
-
 /// =================== 오토바이 컨셉 중상단 팝업  ===================
 /// - 카드: 흰색 + 투명도 0.7, 라운드, 그림자, 얇은 테두리
 /// - 제목/본문 구분선(회색 Divider)
@@ -270,32 +291,30 @@ void showMotoPopup(
       bool isError = false,
       Duration duration = const Duration(milliseconds: 2400),
     }) {
-  // 2) 루트 오버레이 사용 → 키보드/다이얼로그 위에도 뜸
   final overlay = Overlay.of(context, rootOverlay: true);
   if (overlay == null) return;
 
   late OverlayEntry entry;
   bool closed = false;
   void safeRemove() {
-    if (!closed && entry.mounted) { closed = true; entry.remove(); }
+    if (!closed && entry.mounted) {
+      closed = true;
+      entry.remove();
+    }
   }
 
   entry = OverlayEntry(
     builder: (ctx) {
-      // 3) 노치/상태바 고려: viewPadding.top 사용
       final topInset = MediaQuery.of(ctx).viewPadding.top;
 
       return Stack(
         children: [
-          // (옵션) 빈 곳 탭하면 닫기
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onTap: safeRemove,
             ),
           ),
-
-          // 1) 상단 고정
           Positioned(
             top: topInset + 8,
             left: 16,
@@ -319,7 +338,11 @@ void showMotoPopup(
                     color: Colors.white.withOpacity(0.85),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: const [
-                      BoxShadow(color: Colors.black26, blurRadius: 16, offset: Offset(0, 6)),
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 16,
+                        offset: Offset(0, 6),
+                      ),
                     ],
                     border: Border.all(color: const Color(0xFFE9E9EE)),
                   ),
@@ -329,8 +352,8 @@ void showMotoPopup(
                     children: [
                       Row(
                         children: [
-                          // 저장 아이콘 등 원하는 아이콘으로
-                          Icon(Icons.save_rounded, color: Colors.pink),
+                          Icon(Icons.save_rounded,
+                              color: isError ? Colors.red : Colors.pink),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -345,11 +368,19 @@ void showMotoPopup(
                         ],
                       ),
                       const SizedBox(height: 10),
-                      const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
+                      const Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: Color(0xFFE5E7EB),
+                      ),
                       const SizedBox(height: 10),
                       Text(
                         message,
-                        style: const TextStyle(fontSize: 14.5, height: 1.35, color: Colors.black87),
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          height: 1.35,
+                          color: Colors.black87,
+                        ),
                       ),
                     ],
                   ),

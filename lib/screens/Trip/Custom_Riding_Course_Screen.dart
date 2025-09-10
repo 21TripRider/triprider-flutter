@@ -35,8 +35,9 @@ class _CustomRiding_Course_State extends State<CustomRidingCourse> {
   Widget _contentCore({required bool scrollable}) {
     // scrollable=false (섹션용) : Column만, 리스트는 shrinkWrap + NeverScrollable
     final inner = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CreateCourseButton(onTap: _onCreateCoursePressed),
@@ -107,8 +108,9 @@ class CreateCourseButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         splashColor: Colors.black12,
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
             color: const Color(0xFFFFF0F2),
             borderRadius: BorderRadius.circular(8),

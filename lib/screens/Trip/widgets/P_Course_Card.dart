@@ -1,10 +1,11 @@
+//lib/Trip/widgets/P_Course_card.dart
 import 'package:flutter/material.dart';
 
 class P_CourseCard extends StatelessWidget {
   /// 네트워크 URL 또는 에셋 경로
   final String imagePath;
 
-  /// 서버 상대경로("/images/...")일 때 붙일 베이스 URL (예: http://10.0.2.2:8080)
+  /// 서버 상대경로("/images/…")일 때 붙일 베이스 URL (예: http://10.0.2.2:8080)
   /// 절대경로(http/https)나 에셋일 경우는 무시됨.
   final String? imageBaseUrl;
 
@@ -125,7 +126,7 @@ class P_CourseCard extends StatelessWidget {
                       const SizedBox(height: 5),
                       Row(
                         children: [
-                          const Icon(Icons.gps_fixed, color: Colors.white),
+                          const Icon(Icons.location_on_rounded, color: Colors.white),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(

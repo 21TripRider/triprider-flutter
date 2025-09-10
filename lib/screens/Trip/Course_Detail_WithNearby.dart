@@ -82,12 +82,13 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
         backgroundColor: Colors.white,
         leading: IconButton(
           onPressed: () => Navigator.maybePop(context),
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.black87),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87),
         ),
         title: const Text(
-          '코스 상세',
+          '코스 상세 정보',
           style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
         ),
+        centerTitle: true,
       ),
       body: Column(
         children: [
@@ -142,10 +143,6 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(28),
-                  topRight: Radius.circular(28),
-                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.08),
@@ -165,32 +162,8 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
                         final selected = _selected == cat;
                         return Padding(
                           padding: const EdgeInsets.only(right: 10),
-                          child: ChoiceChip(
-                            label: Row(
-                              children: [
-                                Icon(_iconFor(cat),
-                                    size: 18,
-                                    color: selected ? Colors.white : Colors.black54),
-                                const SizedBox(width: 4),
-                                Text(cat.title),
-                              ],
-                            ),
-                            selected: selected,
-                            labelStyle: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: selected ? Colors.white : Colors.black87,
-                            ),
-                            selectedColor: const Color(0xffFF5F9E), // 핑크
-                            backgroundColor: Colors.grey.shade100,
-                            side: BorderSide(
-                              color: selected
-                                  ? Colors.pinkAccent
-                                  : Colors.grey.shade400,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(22),
-                            ),
-                            onSelected: (_) {
+                          child: GestureDetector(
+                            onTap: () {
                               setState(() {
                                 _selected = cat;
                                 _future = NearbyApi.fetchByCourse(
@@ -200,6 +173,32 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
                                 );
                               });
                             },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: selected ? const Color(0xffFF4E6B) : Colors.white,
+                                borderRadius: BorderRadius.circular(22),
+                                border: Border.all(
+                                  color: selected ? Color(0xffFF4E6B) : Color(0xffD9D9D9),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(_iconFor(cat),
+                                      size: 18,
+                                      color: selected ? Colors.white : Color(0xff999999)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    cat.title,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      color: selected ? Colors.white : Color(0xff000000),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         );
                       }).toList(),
@@ -225,7 +224,16 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
                         return ListView.separated(
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                           itemCount: items.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          separatorBuilder: (context, __) => SizedBox(
+                            height: 20,
+                            child: Center(
+                              child: Container(
+                                height: 1 / MediaQuery.of(context).devicePixelRatio,
+                                width: double.infinity,
+                                color: const Color(0xFFD9D9D9),
+                              ),
+                            ),
+                          ),
                           itemBuilder: (context, i) {
                             final p = items[i];
                             return _PoiTile(
@@ -249,7 +257,7 @@ class _CourseDetailWithNearbyState extends State<CourseDetailWithNearby> {
   IconData _iconFor(NearbyCategory cat) {
     switch (cat) {
       case NearbyCategory.tourist:
-        return Icons.park;
+        return Icons.place_rounded;
       case NearbyCategory.culture:
         return Icons.account_balance;
       case NearbyCategory.event:
@@ -309,23 +317,18 @@ class _PoiTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      elevation: 1,
+    return Container(
+      width: double.infinity,
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: SizedBox(
+        child: Container(
           height: 100,
           child: Row(
             children: [
               // 썸네일
               ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                ),
+                borderRadius: BorderRadius.circular(16),
                 child: _buildThumb(),
               ),
               const SizedBox(width: 12),
@@ -362,9 +365,9 @@ class _PoiTile extends StatelessWidget {
                   ),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.only(right: 12.0),
-                child: Icon(Icons.arrow_forward_ios, size: 18, color: Colors.black45),
+              Padding(
+                padding: const EdgeInsets.only(right: 4.0),
+                child: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.black45),
               ),
             ],
           ),
@@ -410,3 +413,4 @@ class _PoiTile extends StatelessWidget {
     }
   }
 }
+

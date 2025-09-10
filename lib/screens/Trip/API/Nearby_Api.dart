@@ -1,17 +1,16 @@
-// lib/screens/Trip/shared/nearby_api.dart
 import 'dart:convert';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:triprider/core/network/Api_client.dart';
 
 /// 백엔드 카테고리와 1:1 매핑된 섹터
 enum NearbyCategory {
-  tourist('관광지'),       // only=tour     → 12
-  culture('문화시설'),     // only=culture  → 14
-  event('행사/공연/축제'), // only=event    → 15
-  leports('레포츠'),        // only=leports  → 28
-  stay('숙박'),            // only=stay     → 32
-  shop('쇼핑'),            // only=shop     → 38
-  food('음식점');          // only=food     → 39
+  tourist('관광지'),
+  culture('문화시설'),
+  event('행사/공연/축제'),
+  leports('레포츠'),
+  stay('숙박'),
+  shop('쇼핑'),
+  food('음식점');
 
   const NearbyCategory(this.title);
   final String title;
@@ -19,14 +18,14 @@ enum NearbyCategory {
 
 /// UI용 POI 모델
 class NearbyItem {
-  final String id;           // contentId 또는 title|lat|lng
+  final String id;
   final String title;
   final String? addr;
   final String? tel;
-  final String thumbUrl;     // 무조건 값 보장
+  final String thumbUrl;
   final double lat;
   final double lng;
-  final int? distanceM;      // distMeters
+  final int? distanceM;
   final int? contentTypeId;
 
   NearbyItem({
@@ -59,20 +58,13 @@ class NearbyApi {
   /// 카테고리별 디폴트 이미지
   static String defaultImage(NearbyCategory cat) {
     switch (cat) {
-      case NearbyCategory.tourist:
-        return 'assets/image/tour.png';
-      case NearbyCategory.culture:
-        return 'assets/image/culture.png';
-      case NearbyCategory.event:
-        return 'assets/image/event.png';
-      case NearbyCategory.leports:
-        return 'assets/image/leports.png';
-      case NearbyCategory.stay:
-        return 'assets/image/stay.png';
-      case NearbyCategory.shop:
-        return 'assets/image/shop.png';
-      case NearbyCategory.food:
-        return 'assets/image/food.png';
+      case NearbyCategory.tourist: return 'assets/image/tour.png';
+      case NearbyCategory.culture: return 'assets/image/culture.png';
+      case NearbyCategory.event:   return 'assets/image/event.png';
+      case NearbyCategory.leports: return 'assets/image/leports.png';
+      case NearbyCategory.stay:    return 'assets/image/stay.png';
+      case NearbyCategory.shop:    return 'assets/image/shop.png';
+      case NearbyCategory.food:    return 'assets/image/food.png';
     }
   }
 
@@ -112,39 +104,50 @@ class NearbyApi {
 
   // ───────────────────────────── internal ─────────────────────────────
 
+  /// 서버가 배열로 주든(Map으로 전체 카테고리를 주든) 모두 안전하게 파싱
   static List<NearbyItem> _parseList(dynamic json, NearbyCategory cat) {
-    if (json is! List) return const [];
+    // case A: 기대 형태(리스트)
+    if (json is List) {
+      return json.map<NearbyItem>((e) {
+        final m = (e as Map).cast<String, dynamic>();
+        final contentId = m['contentId'];
+        final title = (m['title'] as String?) ?? '';
+        final lat = (m['lat'] as num).toDouble();
+        final lng = (m['lng'] as num).toDouble();
+        final id = (contentId == null || contentId == 0)
+            ? 't:$title|${(lat * 1e4).round()}|${(lng * 1e4).round()}'
+            : 'id:$contentId';
 
-    return json.map<NearbyItem>((e) {
-      final m = (e as Map).cast<String, dynamic>();
-      final contentId = m['contentId'];
-      final title = (m['title'] as String?) ?? '';
-      final lat = (m['lat'] as num).toDouble();
-      final lng = (m['lng'] as num).toDouble();
+        // API 응답 이미지 (없으면 카테고리 기본이미지)
+        final image = m['image'] as String?;
+        final thumb = (image != null && image.isNotEmpty)
+            ? image
+            : NearbyApi.defaultImage(cat);
 
-      final id = (contentId == null || contentId == 0)
-          ? 't:$title|${(lat * 1e4).round()}|${(lng * 1e4).round()}'
-          : 'id:$contentId';
+        return NearbyItem(
+          id: id,
+          title: title,
+          addr: m['addr'] as String?,
+          tel: m['tel'] as String?,
+          thumbUrl: thumb,
+          lat: lat,
+          lng: lng,
+          distanceM: (m['distMeters'] as num?)?.toInt(),
+          contentTypeId: (m['contentTypeId'] as num?)?.toInt(),
+        );
+      }).toList(growable: false);
+    }
 
-      // API 응답 이미지
-      String? image = m['image'] as String?;
+    // case B: 맵 형태({"tour":[...], "food":[...]})로 온 경우 현재 카테고리 키만 뽑아서 재귀 파싱
+    if (json is Map) {
+      final map = Map<String, dynamic>.from(json);
+      final key = _only(cat);
+      final val = map[key];
+      if (val is List) {
+        return _parseList(val, cat);
+      }
+    }
 
-      // 이미지 없으면 카테고리별 디폴트 이미지 사용
-      final thumb = (image != null && image.isNotEmpty)
-          ? image
-          : NearbyApi.defaultImage(cat);
-
-      return NearbyItem(
-        id: id,
-        title: title,
-        addr: m['addr'] as String?,
-        tel: m['tel'] as String?,
-        thumbUrl: thumb,
-        lat: lat,
-        lng: lng,
-        distanceM: (m['distMeters'] as num?)?.toInt(),
-        contentTypeId: (m['contentTypeId'] as num?)?.toInt(),
-      );
-    }).toList(growable: false);
+    return const [];
   }
 }
