@@ -86,10 +86,10 @@ class _RidergramScreenState extends State<RidergramScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // ✅ 배경색 흰색
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white, // ✅ AppBar 배경색
-        elevation: 0, // ✅ 그림자 제거
+        backgroundColor: Colors.white,
+        elevation: 0,
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
@@ -118,8 +118,7 @@ class _RidergramScreenState extends State<RidergramScreen> {
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView.separated(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               itemCount: _posts.length,
               separatorBuilder: (_, __) => const SizedBox(height: 16),
               itemBuilder: (_, i) => _PostCard(
@@ -127,8 +126,7 @@ class _RidergramScreenState extends State<RidergramScreen> {
                 onToggleLike: () => _toggleLike(i),
                 onCommentCountChanged: (newCount) {
                   setState(() {
-                    _posts[i] =
-                        _posts[i].copyWith(commentCount: newCount);
+                    _posts[i] = _posts[i].copyWith(commentCount: newCount);
                   });
                 },
               ),
@@ -165,6 +163,9 @@ class _PostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const double imageRadius = 16;
+    const double imageAspect = 3 / 4; // ✅ 세로 4 : 가로 3  → (가로/세로)
+
     final hasImage =
     (post.imageUrl != null && post.imageUrl!.trim().isNotEmpty);
 
@@ -196,18 +197,20 @@ class _PostCard extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        // 이미지
+        // 이미지 (세로 4 : 가로 3)
         if (contentImageUrl != null)
           ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Image.network(
-              contentImageUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                height: 180,
-                alignment: Alignment.center,
-                color: const Color(0x11000000),
-                child: const Text('이미지 로드 실패'),
+            borderRadius: BorderRadius.circular(imageRadius),
+            child: AspectRatio(
+              aspectRatio: imageAspect,
+              child: Image.network(
+                contentImageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  alignment: Alignment.center,
+                  color: const Color(0x11000000),
+                  child: const Text('이미지 로드 실패'),
+                ),
               ),
             ),
           ),
@@ -232,8 +235,8 @@ class _PostCard extends StatelessWidget {
             spacing: 10,
             children: (post.hashtags!.trim().split(RegExp(r'\s+')))
                 .where((w) => w.isNotEmpty)
-                .map((t) =>
-                Text(t, style: const TextStyle(color: Color(0xFF0088FF))))
+                .map((t) => Text(t,
+                style: const TextStyle(color: Color(0xFF0088FF))))
                 .toList(),
           ),
         ],
@@ -243,7 +246,6 @@ class _PostCard extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // ❤️ 좋아요
             GestureDetector(
               onTap: onToggleLike,
               child: Icon(
@@ -252,13 +254,10 @@ class _PostCard extends StatelessWidget {
                 size: 26,
               ),
             ),
-            const SizedBox(width: 4), // ← 아이콘과 숫자 간격
+            const SizedBox(width: 4),
             Text('${post.likeCount}',
                 style: const TextStyle(fontSize: 14, color: Colors.grey)),
-
-            const SizedBox(width: 16), // 그룹 간격
-
-            // 💬 댓글
+            const SizedBox(width: 16),
             GestureDetector(
               onTap: () async {
                 final newCount = await showModalBottomSheet<int>(
@@ -271,7 +270,7 @@ class _PostCard extends StatelessWidget {
               },
               child: const Icon(Icons.mode_comment_outlined, size: 26),
             ),
-            const SizedBox(width: 4), // ← 아이콘과 숫자 간격
+            const SizedBox(width: 4),
             Text('${post.commentCount}',
                 style: const TextStyle(fontSize: 14, color: Colors.grey)),
           ],
