@@ -21,6 +21,11 @@ import 'package:triprider/screens/MyPage/LogoutScreen.dart';
 import 'package:triprider/widgets/Bottom_App_Bar.dart';
 
 /// =========================
+/// ✅ 공통 상수
+/// =========================
+const String kIntroPlaceholderText = '한줄 소개를 입력해보세요';
+
+/// =========================
 /// ✅ 팝업 유틸 (로그인 화면의 스타일 그대로 복제)
 /// =========================
 enum PopupType { info, success, warn, error }
@@ -148,8 +153,6 @@ void showTripriderPopup(
 /// =========================
 /// 서버 API 기본 설정
 /// =========================
-
-// 플랫폼별 로컬 서버 접근 주소 자동 선택
 final String kApiBase = (() {
   if (Platform.isIOS) return 'https://trip-rider.com';
   return 'https://trip-rider.com';
@@ -226,6 +229,7 @@ Future<MyPageResponse> fetchMyPage() async {
 }
 
 Future<void> updateIntroOnServer(String intro) async {
+  // 비어있을 땐 여기로 오지 않음(클라이언트에서 clearIntroOnServer 사용)
   final uri = Uri.parse('$kApiBase/api/mypage/intro');
   final res = await http.put(
     uri,
@@ -237,6 +241,40 @@ Future<void> updateIntroOnServer(String intro) async {
   if (res.statusCode != 200) {
     throw Exception('한줄소개 수정 실패: ${res.statusCode} ${res.body}');
   }
+}
+
+/// ✅ 추가: 한줄소개 제거 시 서버에 여러 방식으로 시도
+Future<bool> clearIntroOnServer() async {
+  final uri = Uri.parse('$kApiBase/api/mypage/intro');
+
+  // 1) DELETE /api/mypage/intro
+  try {
+    final del = await http.delete(uri, headers: await _authHeaders());
+    if (del.statusCode == 200) return true;
+  } catch (_) {}
+
+  // 2) PUT application/json { "intro": null }
+  try {
+    final putNull = await http.put(
+      uri,
+      headers: await _authHeaders(extra: {'Content-Type': 'application/json; charset=utf-8'}),
+      body: jsonEncode({'intro': null}),
+    );
+    if (putNull.statusCode == 200) return true;
+  } catch (_) {}
+
+  // 3) PUT application/json { "intro": "" }
+  try {
+    final putEmpty = await http.put(
+      uri,
+      headers: await _authHeaders(extra: {'Content-Type': 'application/json; charset=utf-8'}),
+      body: jsonEncode({'intro': ''}),
+    );
+    if (putEmpty.statusCode == 200) return true;
+  } catch (_) {}
+
+  // 실패시 false (UI는 초기화)
+  return false;
 }
 
 Future<String> uploadProfileImage(File imageFile) async {
@@ -251,6 +289,42 @@ Future<String> uploadProfileImage(File imageFile) async {
   }
   final raw = res.body.replaceAll('"', '').trim();
   return resolveImageUrl(raw);
+}
+
+/// =========================
+/// 🔧 인트로 정규화 (여기가 핵심 추가)
+/// - null/빈문자/'null'/'undefined' → null
+/// - '{"intro":null}' / '{"intro":""}' 같은 이중 인코딩 문자열 → 파싱해 null 처리
+/// - '{"intro":"text"}' → 'text'
+/// =========================
+String? _normalizeIntro(dynamic raw) {
+  if (raw == null) return null;
+  final t = raw.toString().trim();
+  if (t.isEmpty) return null;
+
+  final low = t.toLowerCase();
+  if (low == 'null' || low == 'undefined') return null;
+
+  // JSON처럼 보이면 한 번 더 파싱
+  if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))) {
+    try {
+      final obj = jsonDecode(t);
+      if (obj is Map) {
+        final v = obj['intro'];
+        if (v == null) return null;
+        final s = v.toString().trim();
+        if (s.isEmpty) return null;
+        final sl = s.toLowerCase();
+        if (sl == 'null' || sl == 'undefined') return null;
+        return s;
+      }
+      return null;
+    } catch (_) {
+      if (t.contains('"intro":null') || t.contains("'intro':null")) return null;
+    }
+  }
+
+  return t;
 }
 
 /// =========================
@@ -274,6 +348,9 @@ class _MypageScreenState extends State<MypageScreen>
 
   XFile? _pickedImage;
   bool _loading = true;
+
+  bool _isPlaceholder(String s) =>
+      s.trim().isEmpty || s.trim() == kIntroPlaceholderText;
 
   @override
   void initState() {
@@ -303,9 +380,13 @@ class _MypageScreenState extends State<MypageScreen>
       final mp = await fetchMyPage();
       setState(() {
         _nickname = (mp.nickname.isNotEmpty) ? mp.nickname : '라이더';
-        _introText = (mp.intro != null && mp.intro!.trim().isNotEmpty)
-            ? mp.intro!.trim()
-            : '한줄 소개를 입력해보세요';
+
+        // ✅ 인트로 정규화 적용 ({"intro":null} → null 처리)
+        final normalized = _normalizeIntro(mp.intro);
+        _introText = (normalized == null || normalized.isEmpty)
+            ? kIntroPlaceholderText
+            : normalized;
+
         _profileImageUrl = resolveImageUrl(mp.profileImage);
         _loading = false;
       });
@@ -335,7 +416,7 @@ class _MypageScreenState extends State<MypageScreen>
         _totalKm = srvKm;
       });
     } catch (_) {
-      // 조용히 무시(오프라인 등). 필요시 로컬 합산까지 넣을 수 있음.
+      // 조용히 무시
     }
   }
 
@@ -355,18 +436,30 @@ class _MypageScreenState extends State<MypageScreen>
     if (result == null) return;
 
     try {
-      if (result.intro != null && result.intro!.trim() != _introText.trim()) {
-        await updateIntroOnServer(result.intro!.trim());
-        _introText = result.intro!.trim();
+      // ── 1) 한줄소개 처리
+      if (result.intro != null) {
+        final newIntro = result.intro!.trim();
+
+        if (newIntro.isEmpty) {
+          // 비우기(서버 시도) → 실패해도 UI는 초기화
+          await clearIntroOnServer();
+          _introText = kIntroPlaceholderText;
+        } else if (newIntro != _introText.trim()) {
+          await updateIntroOnServer(newIntro);
+          _introText = newIntro;
+        }
       }
+
+      // ── 2) 프로필 이미지 처리
       if (result.image != null) {
         final url = await uploadProfileImage(File(result.image!.path));
         _profileImageUrl = withCacheBust(url);
         _pickedImage = null;
       }
-      setState(() {});
-      if (!mounted) return;
 
+      setState(() {});
+
+      if (!mounted) return;
       showTripriderPopup(
         context,
         title: '완료',
@@ -410,8 +503,8 @@ class _MypageScreenState extends State<MypageScreen>
             MyPage_top(
               imageProvider: _buildProfileImageProvider(),
               intro: _introText,
-              totalKm: _totalKm,     // ✅ 전달
-              lapKm: _lapKm,         // ✅ 240km
+              totalKm: _totalKm, // ✅ 전달
+              lapKm: _lapKm, // ✅ 240km
             ),
             const SizedBox(height: 16),
             const MyPage_Bottom(),
@@ -477,8 +570,7 @@ class MyPage_top extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ----- 진행/표시 값 계산 -----
-    final wheels = (lapKm > 0) ? (totalKm / lapKm) : 0.0;      // 예: 2.3
+    final wheels = (lapKm > 0) ? (totalKm / lapKm) : 0.0; // 예: 2.3
     final wheelText = wheels.isFinite ? wheels.toStringAsFixed(1) : '-';
     final progress = (wheels - wheels.floor()).clamp(0.0, 1.0); // 0~1
     final remainKm = ((1 - progress) * lapKm).clamp(0.0, lapKm);
@@ -537,8 +629,7 @@ class MyPage_top extends StatelessWidget {
                             style: TextStyle(color: Colors.white, fontSize: 16)),
                         const Spacer(),
                         Text('누적거리 $distText',
-                            style:
-                            const TextStyle(color: Colors.white70, fontSize: 14)),
+                            style: const TextStyle(color: Colors.white70, fontSize: 14)),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -547,8 +638,7 @@ class MyPage_top extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: progress,
                         backgroundColor: Colors.white24,
-                        valueColor:
-                        const AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                         minHeight: 6,
                       ),
                     ),
@@ -563,10 +653,14 @@ class MyPage_top extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          Text(intro,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 19, fontWeight: FontWeight.w400)),
-
+          Text(
+            intro,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 19,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
           const SizedBox(height: 16),
         ],
       ),
@@ -657,7 +751,11 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
   void initState() {
     super.initState();
     _image = widget.initialImage;
-    _controller = TextEditingController(text: widget.initialIntro);
+
+    // ✅ 플레이스홀더로 표시 중이었다면 입력칸은 빈 값으로 시작
+    final initialText =
+    (widget.initialIntro.trim() == kIntroPlaceholderText) ? '' : widget.initialIntro;
+    _controller = TextEditingController(text: initialText);
   }
 
   @override

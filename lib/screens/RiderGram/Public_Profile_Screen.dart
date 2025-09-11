@@ -171,6 +171,40 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     return null;
   }
 
+  /// 인트로 문자열을 “표시 가능한 텍스트”로 정규화
+  /// - null/빈문자/'null'/'undefined' → null
+  /// - '{"intro":null}' / '{"intro":""}' 같은 이중 인코딩 문자열 → 파싱하여 null 처리
+  /// - '{"intro":"text"}' → 'text'
+  String? _normalizeIntro(String? s) {
+    if (s == null) return null;
+    final t = s.trim();
+    if (t.isEmpty) return null;
+    final low = t.toLowerCase();
+    if (low == 'null' || low == 'undefined') return null;
+
+    // JSON처럼 보이면 한 번 더 파싱 시도
+    if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))) {
+      try {
+        final inner = jsonDecode(t);
+        if (inner is Map) {
+          final v = inner['intro'];
+          if (v == null) return null;
+          if (v is String && v.trim().isEmpty) return null;
+          if (v is String && (v.trim().toLowerCase() == 'null' || v.trim().toLowerCase() == 'undefined')) {
+            return null;
+          }
+          return v.toString();
+        }
+        // 배열/기타는 표시하지 않음
+        return null;
+      } catch (_) {
+        // 특수 케이스: 파싱 실패하지만 문자열에 intro:null 패턴이 포함됨
+        if (t.contains('"intro":null') || t.contains("'intro':null")) return null;
+      }
+    }
+    return t;
+  }
+
   // ---- 프로필 로드 ----
   Future<void> _fetchProfile() async {
     setState(() { _loadingProfile = true; _errorProfile = ''; });
@@ -209,9 +243,25 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         try {
           final res = await ApiClient.get(uri.path, query: uri.queryParameters);
           if (res.statusCode >= 200 && res.statusCode < 300) {
-            final obj = jsonDecode(res.body);
-            if (obj is Map) { data = obj.cast<String, dynamic>(); break; }
-            if (obj is String) { data = {'intro': obj}; break; }
+            final firstDecoded = jsonDecode(res.body);
+            if (firstDecoded is Map) {
+              data = firstDecoded.cast<String, dynamic>();
+              break;
+            }
+            // 서버가 문자열로 JSON을 한 번 더 감싼 경우 처리
+            if (firstDecoded is String) {
+              try {
+                final secondDecoded = jsonDecode(firstDecoded);
+                if (secondDecoded is Map) {
+                  data = secondDecoded.cast<String, dynamic>();
+                } else {
+                  data = {'intro': _cleanString(firstDecoded)};
+                }
+              } catch (_) {
+                data = {'intro': _cleanString(firstDecoded)};
+              }
+              break;
+            }
           }
         } catch (_) {}
       }
@@ -221,7 +271,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           ?? _deepGetNum(data, ['id','userId','uid','authorId']);
       if (idNum != null) _userId = idNum.toInt();
 
-      // --- 기존 파싱 로직 그대로 ---
+      // --- 기존 파싱 로직 + intro 정규화 ---
       String? imgRaw    = _firstNonNull<String>(data, ['profileImage','profile_image','imageUrl','avatarUrl','photoUrl'], _cleanString)
           ?? _deepGetString(data, ['profileImage','profile_image','imageUrl','avatarUrl','photoUrl']);
       num?    wheelsRaw = _firstNonNull<num>(data, ['wheels','wheel','laps','levelProgress'], _cleanNum)
@@ -236,16 +286,22 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           ?? _deepGetString(data, ['region','location','area']) ?? '제주도';
       num?    totalDist = _firstNonNull<num>(data, ['totalKm','totalDistance','distance','distKm'], _cleanNum)
           ?? _deepGetNum(data,    ['totalKm','totalDistance','distance','distKm']);
-      String? introRaw  = _firstNonNull<String>(data, ['intro','introduction','bio','about','oneLineIntro','profileIntro'], _cleanString)
-          ?? _deepGetString(data, ['intro','introduction','bio','about','oneLineIntro','profileIntro']);
-      String? nicknameFromApi = _firstNonNull<String>(data, ['nickname','name','displayName'], _cleanString);
+
+      // intro는 다양한 키를 보고 + 정규화 필터 적용
+      String? introRaw  = _firstNonNull<String>(
+          data,
+          ['intro','introduction','bio','about','oneLineIntro','profileIntro'],
+          _cleanString)
+          ?? _deepGetString(
+              data, ['intro','introduction','bio','about','oneLineIntro','profileIntro']);
+      introRaw = _normalizeIntro(introRaw);
 
       double? wheels = (wheelsRaw != null) ? wheelsRaw.toDouble()
           : (totalDist != null ? totalDist.toDouble() / _lapKm : null);
 
       setState(() {
-        _nickname        = nicknameFromApi ?? widget.nickname ?? _nickname;
-        _intro           = introRaw;
+        _nickname        = _cleanString(_firstNonNull<String>(data, ['nickname','name','displayName'], _cleanString)) ?? widget.nickname ?? _nickname;
+        _intro           = introRaw; // null이면 화면에서 플레이스홀더 처리
         _profileImageUrl = _absOrNull(imgRaw);
         _totalDistance   = totalDist;
         _region          = region;
@@ -259,7 +315,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       setState(() { _loadingProfile = false; _errorProfile = '프로필 불러오기 실패: $e'; });
     }
   }
-
 
   // ---- 특정 유저의 누적거리(요약) ----
   Future<void> _fetchRideSummaryForUser() async {
@@ -377,7 +432,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       // ★ 클라이언트 측 안전 필터링
       // ------------------------------
       final int? targetId = _userId;
-      // 닉네임은 라우팅으로 받은 값 우선, 없으면 API에서 채워진 _nickname 사용
       final String? targetNick = (widget.nickname?.isNotEmpty ?? false)
           ? widget.nickname
           : (_nickname.isNotEmpty ? _nickname : null);
@@ -463,7 +517,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       }
     }
   }
-
 
   void _onScroll() {
     if (!_hasMore || _loadingPosts) return;
@@ -632,7 +685,7 @@ class _HeaderGradientCard extends StatelessWidget {
           Text(
             nickname,
             style: const TextStyle(
-              color: Colors.black,
+              color: Colors.white,
               fontSize: 22,
               fontWeight: FontWeight.w700,
             ),
@@ -695,15 +748,16 @@ class _HeaderGradientCard extends StatelessWidget {
 
           // 소개
           Text(
-            (intro != null && intro!.trim().isNotEmpty) ? intro!.trim() : '소개가 없습니다.',
-            style: const TextStyle(color: Colors.black, fontSize: 15, fontWeight: FontWeight.w500),
+            (intro != null && intro!.trim().isNotEmpty)
+                ? intro!.trim()
+                : '한줄 소개가 없습니다.',
+            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
           ),
         ],
       ),
     );
   }
 }
-
 
 /// ====== 그리드용 썸네일 모델 (이미지/텍스트 지원) ======
 class _PostThumb {
