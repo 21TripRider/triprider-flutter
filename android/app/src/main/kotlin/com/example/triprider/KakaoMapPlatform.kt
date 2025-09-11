@@ -14,7 +14,6 @@ import com.kakao.vectormap.KakaoMapReadyCallback
 import com.kakao.vectormap.LatLng
 import com.kakao.vectormap.MapLifeCycleCallback
 import com.kakao.vectormap.MapView
-// Additional Kakao Vector Map namespaces
 import com.kakao.vectormap.animation.*
 import com.kakao.vectormap.camera.*
 import com.kakao.vectormap.label.*
@@ -67,15 +66,9 @@ class KakaoMapPlatform(
     private var markerStyleRed: LabelStyles? = null
     private var markerStyleGreen: LabelStyles? = null
 
-    // ▼ 사용자 위치 전용 라벨(Glow / Ring / Core)
-    private var userGlowLabel: com.kakao.vectormap.label.Label? = null
-    private var userRingLabel: com.kakao.vectormap.label.Label? = null
-    private var userCoreLabel: com.kakao.vectormap.label.Label? = null
-
-    // ▼ 사용자 위치 스타일
-    private var userStyleGlow: LabelStyles? = null        // 연핑크 글로우
-    private var userStyleRingWhite: LabelStyles? = null   // 하얀 링(디스크)
-    private var userStyleCorePink: LabelStyles? = null    // 코어 핑크
+    // ▼ 사용자 위치: 단일 핑크 점 라벨(통일)
+    private var userDotLabel: com.kakao.vectormap.label.Label? = null
+    private var userDotStyle: LabelStyles? = null
 
     // ▼ 터치 상호작용 제어 (기본: 가능)
     private var isTouchable: Boolean = true
@@ -126,25 +119,11 @@ class KakaoMapPlatform(
                     )
                 )
 
-                // ▼ 사용자 위치(핑크 코어 + 하얀 링 + 핑크 글로우) 스타일
-                userStyleGlow = kakaoMap!!.labelManager!!.addLabelStyles(
+                // ▼ 사용자 위치: 단일 핑크 점(●) — 항상 동일
+                userDotStyle = kakaoMap!!.labelManager!!.addLabelStyles(
                     LabelStyles.from(
                         LabelStyle.from()
-                            .setTextStyles(dpToPx(34), 0x44FF4E6B.toInt()) // 연핑크 오라
-                            .setApplyDpScale(false)
-                    )
-                )
-                userStyleRingWhite = kakaoMap!!.labelManager!!.addLabelStyles(
-                    LabelStyles.from(
-                        LabelStyle.from()
-                            .setTextStyles(dpToPx(26), 0xFFFFFFFF.toInt()) // 흰 디스크(링 효과)
-                            .setApplyDpScale(false)
-                    )
-                )
-                userStyleCorePink = kakaoMap!!.labelManager!!.addLabelStyles(
-                    LabelStyles.from(
-                        LabelStyle.from()
-                            .setTextStyles(dpToPx(18), 0xFFFF4E6B.toInt()) // 코어 핑크
+                            .setTextStyles(dpToPx(20), 0xFFFF4E6B.toInt()) // 핫핑크
                             .setApplyDpScale(false)
                     )
                 )
@@ -255,39 +234,21 @@ class KakaoMapPlatform(
         markerLabels.clear()
     }
 
-    // ▼ 사용자 위치 라벨(Glow → Ring → Core) 고정 순서로 항상 재생성
+    // ▼ 사용자 위치 라벨: 단일 핑크 점으로 항상 재생성 (겹침/순서 문제 방지)
     private fun upsertUserLabel(lat: Double, lon: Double) {
         val layer = kakaoMap?.labelManager?.layer ?: return
         val pos = LatLng.from(lat, lon)
         val dot = "\u25CF" // ●
 
-        fun removeIfExists(label: com.kakao.vectormap.label.Label?) {
-            if (label == null) return
-            runCatching { label.javaClass.getMethod("remove").invoke(label) }
-                .onFailure { runCatching { layer.remove(label) } }
+        userDotLabel?.let { lb ->
+            runCatching { lb.javaClass.getMethod("remove").invoke(lb) }
+                .onFailure { runCatching { layer.remove(lb) } }
         }
 
-        // 순서가 섞이지 않도록 전부 지우고 같은 순서로 다시 추가
-        removeIfExists(userGlowLabel)
-        removeIfExists(userRingLabel)
-        removeIfExists(userCoreLabel)
-
-        userGlowLabel = layer.addLabel(
+        userDotLabel = layer.addLabel(
             LabelOptions.from(pos)
                 .setClickable(false)
-                .setStyles(userStyleGlow)
-                .setTexts(LabelTextBuilder().setTexts(dot))
-        )
-        userRingLabel = layer.addLabel(
-            LabelOptions.from(pos)
-                .setClickable(false)
-                .setStyles(userStyleRingWhite)
-                .setTexts(LabelTextBuilder().setTexts(dot))
-        )
-        userCoreLabel = layer.addLabel(
-            LabelOptions.from(pos)
-                .setClickable(false)
-                .setStyles(userStyleCorePink)
+                .setStyles(userDotStyle)
                 .setTexts(LabelTextBuilder().setTexts(dot))
         )
     }
@@ -443,7 +404,7 @@ class KakaoMapPlatform(
                 val lon = call.argument<Double>("lon")
                 try {
                     if (lat != null && lon != null) {
-                        // ✅ 사용자 위치 마커(Glow + Ring + Core) 갱신 — 순서 고정
+                        // ✅ 사용자 위치 마커: 단일 핑크 점으로 갱신
                         upsertUserLabel(lat, lon)
                     }
                     result.success(null)

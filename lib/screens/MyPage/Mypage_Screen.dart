@@ -1,6 +1,7 @@
 // lib/screens/MyPage/mypage_screen.dart
 import 'dart:io';
 import 'dart:convert';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -292,10 +293,7 @@ Future<String> uploadProfileImage(File imageFile) async {
 }
 
 /// =========================
-/// 🔧 인트로 정규화 (여기가 핵심 추가)
-/// - null/빈문자/'null'/'undefined' → null
-/// - '{"intro":null}' / '{"intro":""}' 같은 이중 인코딩 문자열 → 파싱해 null 처리
-/// - '{"intro":"text"}' → 'text'
+/// 🔧 인트로 정규화
 /// =========================
 String? _normalizeIntro(dynamic raw) {
   if (raw == null) return null;
@@ -381,7 +379,7 @@ class _MypageScreenState extends State<MypageScreen>
       setState(() {
         _nickname = (mp.nickname.isNotEmpty) ? mp.nickname : '라이더';
 
-        // ✅ 인트로 정규화 적용 ({"intro":null} → null 처리)
+        // ✅ 인트로 정규화 적용
         final normalized = _normalizeIntro(mp.intro);
         _introText = (normalized == null || normalized.isEmpty)
             ? kIntroPlaceholderText
@@ -673,31 +671,46 @@ class MyPage_top extends StatelessWidget {
 /// =========================
 class MyPage_Bottom extends StatelessWidget {
   const MyPage_Bottom({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _buildMenuItem(context, '주행 기록', const RecordScreen()),
-        _buildMenuItem(context, '좋아요 누른 코스', const SaveCourseScreen()),
-        _buildMenuItem(context, '나의 게시물', const MyUploadScreen()),
-        _buildMenuItem(context, '개인정보처리방침', const PrivacyPolicyScreen()),
-        _buildMenuItem(context, '이용약관', const TermsOfServiceScreen()),
-        _buildMenuItem(context, '로그아웃', const LogoutScreen()),
-        _buildMenuItem(context, '회원탈퇴', const DeleteAccountDialog()),
+        _buildMenuItem(context, '주행 기록', destinationPage: const RecordScreen()),
+        _buildMenuItem(context, '좋아요 누른 코스', destinationPage: const SaveCourseScreen()),
+        _buildMenuItem(context, '나의 게시물', destinationPage: const MyUploadScreen()),
+        _buildMenuItem(context, '개인정보처리방침', destinationPage: const PrivacyPolicyScreen()),
+        _buildMenuItem(context, '이용약관', destinationPage: const TermsOfServiceScreen()),
+        _buildMenuItem(context, '로그아웃', destinationPage: const LogoutScreen()),
+
+        // ✅ 회원탈퇴: 블러 배경 + 마이페이지 위에서 모달로 표시
+        _buildMenuItem(
+          context,
+          '회원탈퇴',
+          onTap: () => _showDeleteDialog(context),
+        ),
       ],
     );
   }
 
+  /// 공통 메뉴 아이템 (onTap이 주어지면 그것을 실행, 없으면 destinationPage로 push)
   Widget _buildMenuItem(
       BuildContext context,
-      String title,
-      Widget destinationPage,
-      ) {
+      String title, {
+        Widget? destinationPage,
+        VoidCallback? onTap,
+      }) {
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => destinationPage),
-      ),
+      onTap: () {
+        if (onTap != null) {
+          onTap();
+        } else if (destinationPage != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => destinationPage),
+          );
+        }
+      },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -713,6 +726,43 @@ class MyPage_Bottom extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// ✅ 흐림(블러) + 딤 처리된 다이얼로그
+  Future<void> _showDeleteDialog(BuildContext context) async {
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '회원탈퇴',
+      // barrierColor를 투명으로 두고, 내부에서 BackdropFilter + 반투명 레이어 적용
+      barrierColor: Colors.transparent,
+      pageBuilder: (ctx, anim1, anim2) {
+        return Stack(
+          children: [
+            // 화면 전체 블러 + 살짝 어둡게
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Container(color: Colors.black.withOpacity(0.25)),
+              ),
+            ),
+            // 실제 다이얼로그
+            const Center(child: DeleteAccountDialog()),
+          ],
+        );
+      },
+      transitionBuilder: (ctx, anim, _, child) {
+        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: .95, end: 1).animate(curved),
+            child: child,
+          ),
+        );
+      },
+      transitionDuration: const Duration(milliseconds: 180),
     );
   }
 }
@@ -849,8 +899,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
               ),
               const SizedBox(height: 12),
@@ -873,8 +922,8 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                 ),
                 child: const Text(
                   '저장',
-                  style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
+                  style:
+                  TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
                 ),
               ),
             ],

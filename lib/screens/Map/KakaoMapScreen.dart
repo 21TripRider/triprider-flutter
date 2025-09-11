@@ -228,7 +228,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
         durationMs: 350,
       );
 
-      // ✅ 기본 파란 점 숨김(네이티브 위치 라벨만 사용)
+      // ✅ 기본 파란 점 숨김(네이티브 단일 핑크 점 라벨만 사용)
       await _channel.setUserLocationVisible(false);
       await _channel.setUserLocation(lat: pos.latitude, lon: pos.longitude);
 
@@ -430,8 +430,6 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
       children: [
         _buildPlatformView(_lat!, _lon!),
 
-        // ❌ 중앙 고정 오버레이 위치 마커 제거(네이티브 라벨만 사용)
-
         if (_warning != null)
           Positioned(
             top: safeTop,
@@ -524,7 +522,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
       _lat = pos.latitude;
       _lon = pos.longitude;
 
-      // 좌표 동기화 → 네이티브 사용자 라벨 이동
+      // 좌표 동기화 → 네이티브 사용자 라벨 이동(단일 핑크 점)
       await _channel.setUserLocation(lat: _lat!, lon: _lon!);
 
       // 사용자 위치가 바뀔 때만 카메라 따라가게
@@ -593,7 +591,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
           math.cos(lat1 * math.pi / 180.0) *
               math.cos(lat2 * math.pi / 180.0) *
               (math.sin(dLon / 2) * math.sin(dLon / 2));
-      final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+      final c = 2 * math.atan2(math.sqrt(1 - a), 1 - math.sqrt(1 - a));
       return R * c;
     }
 
@@ -723,7 +721,7 @@ class _TrackingPlayButtonState extends State<_TrackingPlayButton>
 }
 
 /// =======================
-/// ✅ (미사용) 중앙 커스텀 내 위치 마커 컴포넌트 (보관)
+/// ✅ (보관) 중앙 커스텀 내 위치 마커 컴포넌트 (미사용)
 /// =======================
 class _MyLocationDot extends StatelessWidget {
   const _MyLocationDot();
