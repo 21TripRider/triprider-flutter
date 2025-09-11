@@ -37,6 +37,7 @@ dependencies:
   url_launcher: ^6.3.0
   webview_flutter: ^4.7.0
   cupertino_icons: ^1.0.8
+  weather_icons: ^3.0.0
 
 dev_dependencies:
   flutter_test:

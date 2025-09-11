@@ -13,6 +13,7 @@ import 'package:triprider/screens/Home/Weather/WeatherResponse.dart';
 
 // ✅ 서버 최신 기록을 우선 사용
 import 'package:triprider/screens/Map/API/Ride_Api.dart';
+import 'package:weather_icons/weather_icons.dart';
 
 class Homescreen extends StatefulWidget {
   const Homescreen({super.key});
@@ -83,8 +84,8 @@ class _WeatherState extends State<_Weather> {
           }
 
           final w = snap.data!;
-          final probPercent =
-          ((w.precipitationProb ?? 0) * 100).toStringAsFixed(0);
+          final probPercent = ((w.precipitationProb ?? 0) * 100)
+              .toStringAsFixed(0);
 
           return Container(
             decoration: BoxDecoration(
@@ -98,17 +99,21 @@ class _WeatherState extends State<_Weather> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('제주도',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold)),
+                    const Text(
+                      '제주도',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     Text(
                       '${w.tempC.toStringAsFixed(1)}°C',
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w500),
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
@@ -128,19 +133,29 @@ class _WeatherState extends State<_Weather> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('강수',
-                        style: TextStyle(color: Colors.white, fontSize: 20)),
+                    const Text(
+                      '강수',
+                      style: TextStyle(color: Colors.white, fontSize: 20),
+                    ),
                     Row(
                       children: [
                         if (w.precipitationProb != null)
-                          Text('$probPercent%',
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 20)),
+                          Text(
+                            '$probPercent%',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                            ),
+                          ),
                         if (w.precipitationProb != null)
                           const SizedBox(width: 6),
-                        Text('${w.precipitationMm.toStringAsFixed(1)} mm',
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 20)),
+                        Text(
+                          '${w.precipitationMm.toStringAsFixed(1)} mm',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                          ),
+                        ),
                         const SizedBox(width: 4),
                         const Icon(Icons.water_drop, color: Colors.white),
                       ],
@@ -151,13 +166,19 @@ class _WeatherState extends State<_Weather> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('풍속',
-                        style: TextStyle(color: Colors.white, fontSize: 20)),
+                    const Text(
+                      '풍속',
+                      style: TextStyle(color: Colors.white, fontSize: 20),
+                    ),
                     Row(
                       children: [
-                        Text('${w.windSpeedMs.toStringAsFixed(1)} m/s',
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 20)),
+                        Text(
+                          '${w.windSpeedMs.toStringAsFixed(1)} m/s',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                          ),
+                        ),
                         const SizedBox(width: 4),
                         const Icon(Icons.air, color: Colors.white),
                       ],
@@ -168,12 +189,15 @@ class _WeatherState extends State<_Weather> {
                 Text(
                   _advisoryMessage(w),
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 10),
-                const Center(child: Icon(Icons.circle, color: Colors.white, size: 8)),
+                const Center(
+                  child: Icon(Icons.circle, color: Colors.white, size: 8),
+                ),
               ],
             ),
           );
@@ -208,7 +232,7 @@ class _WeatherState extends State<_Weather> {
       if (pty == 2 || pty == 6) {
         return Icon(Icons.cloudy_snowing, color: color, size: size);
       }
-      return Icon(Icons.umbrella, color: color, size: size);
+      return Icon(WeatherIcons.rain, color: color, size: size);
     }
 
     final IconData sun = Icons.wb_sunny;
@@ -228,8 +252,11 @@ class _WeatherState extends State<_Weather> {
             Positioned(
               left: 2,
               top: 2,
-              child: Icon(isNight ? moon : sun,
-                  color: color.withOpacity(0.9), size: size * 0.85),
+              child: Icon(
+                isNight ? moon : sun,
+                color: color.withOpacity(0.9),
+                size: size * 0.85,
+              ),
             ),
             Positioned(
               right: 0,
@@ -294,9 +321,9 @@ class _RentSection extends StatelessWidget {
   const _RentSection({super.key});
 
   void _openRent(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => RentshopList()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => RentshopList()));
   }
 
   @override
@@ -340,16 +367,19 @@ class _RecordState extends State<_Record> {
   Future<Map<String, dynamic>?> _loadFromServer() async {
     try {
       // 3초 타임아웃: 서버 재기동/네트워크 지연 대비
-      final list = await RideApi.listRides()
-          .timeout(const Duration(seconds: 3));
+      final list = await RideApi.listRides().timeout(
+        const Duration(seconds: 3),
+      );
 
       if (list.isEmpty) return null;
 
       // 최신 종료시각 순
       list.sort((a, b) {
-        final bd = DateTime.tryParse('${b['finishedAt'] ?? b['startedAt'] ?? ''}') ??
+        final bd =
+            DateTime.tryParse('${b['finishedAt'] ?? b['startedAt'] ?? ''}') ??
             DateTime.fromMillisecondsSinceEpoch(0);
-        final ad = DateTime.tryParse('${a['finishedAt'] ?? a['startedAt'] ?? ''}') ??
+        final ad =
+            DateTime.tryParse('${a['finishedAt'] ?? a['startedAt'] ?? ''}') ??
             DateTime.fromMillisecondsSinceEpoch(0);
         return bd.compareTo(ad);
       });
@@ -358,15 +388,24 @@ class _RecordState extends State<_Record> {
       return {
         'startedAt': r['startedAt'],
         'endedAt': r['finishedAt'],
-        'elapsedSeconds': (r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0) is num
-            ? (r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0).toInt()
-            : int.tryParse('${r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0}') ?? 0,
+        'elapsedSeconds':
+            (r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0) is num
+                ? (r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0).toInt()
+                : int.tryParse(
+                      '${r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0}',
+                    ) ??
+                    0,
         'distanceMeters':
-        (((r['totalKm'] as num?)?.toDouble() ?? double.tryParse('${r['totalKm'] ?? 0}') ?? 0.0) * 1000.0),
-        'avgSpeedKmh': (r['avgSpeedKmh'] as num?)?.toDouble() ??
+            (((r['totalKm'] as num?)?.toDouble() ??
+                    double.tryParse('${r['totalKm'] ?? 0}') ??
+                    0.0) *
+                1000.0),
+        'avgSpeedKmh':
+            (r['avgSpeedKmh'] as num?)?.toDouble() ??
             double.tryParse('${r['avgSpeedKmh'] ?? 0}') ??
             0.0,
-        'maxSpeedKmh': (r['maxSpeedKmh'] as num?)?.toDouble() ??
+        'maxSpeedKmh':
+            (r['maxSpeedKmh'] as num?)?.toDouble() ??
             double.tryParse('${r['maxSpeedKmh'] ?? 0}') ??
             0.0,
       };
@@ -395,9 +434,11 @@ class _RecordState extends State<_Record> {
     if (parsed.isEmpty) return null;
 
     parsed.sort((a, b) {
-      final ad = DateTime.tryParse(a['endedAt'] ?? '') ??
+      final ad =
+          DateTime.tryParse(a['endedAt'] ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0);
-      final bd = DateTime.tryParse(b['endedAt'] ?? '') ??
+      final bd =
+          DateTime.tryParse(b['endedAt'] ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0);
       return bd.compareTo(ad);
     });
@@ -479,13 +520,19 @@ class _RecordState extends State<_Record> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
-              _HeaderRowRightStat(label: '최근 주행 기록', valueText: '0.0', unit: 'km'),
+              _HeaderRowRightStat(
+                label: '최근 주행 기록',
+                valueText: '0.0',
+                unit: 'km',
+              ),
               SizedBox(height: 12),
               Divider(color: Colors.grey),
               SizedBox(height: 12),
               Center(
-                child: Text('최근 주행기록 없음',
-                    style: TextStyle(color: Colors.grey, fontSize: 16)),
+                child: Text(
+                  '최근 주행기록 없음',
+                  style: TextStyle(color: Colors.grey, fontSize: 16),
+                ),
               ),
             ],
           ),
@@ -536,8 +583,14 @@ class _RecordState extends State<_Record> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _SmallStat(title: '평균 속도', value: '${avg.toStringAsFixed(1)} km/h'),
-                    _SmallStat(title: '최고 속도', value: '${max.toStringAsFixed(1)} km/h'),
+                    _SmallStat(
+                      title: '평균 속도',
+                      value: '${avg.toStringAsFixed(1)} km/h',
+                    ),
+                    _SmallStat(
+                      title: '최고 속도',
+                      value: '${max.toStringAsFixed(1)} km/h',
+                    ),
                     _SmallStat(title: '주행 시간', value: _formatHms(secs)),
                   ],
                 ),
@@ -567,19 +620,25 @@ class _HeaderRowRightStat extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+        ),
         Row(
           children: [
-            Text(valueText,
-                style:
-                const TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
+            Text(
+              valueText,
+              style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800),
+            ),
             const SizedBox(width: 4),
-            Text(unit,
-                style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600)),
+            Text(
+              unit,
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ],
