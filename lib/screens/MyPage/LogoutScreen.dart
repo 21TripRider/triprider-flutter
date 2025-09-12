@@ -176,6 +176,7 @@ class LogoutScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text("로그아웃 확인"),
         content: const Text("정말 로그아웃 하시겠습니까?\n저장된 로그인 정보가 모두 삭제됩니다."),

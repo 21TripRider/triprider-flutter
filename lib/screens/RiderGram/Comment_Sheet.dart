@@ -1,3 +1,4 @@
+//lib/screens/RiderGram/Comment_Sheet.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
@@ -230,7 +231,7 @@ class _CommentSheetState extends State<CommentSheet> {
       child: GestureDetector(
         onTap: () {},
         child: DraggableScrollableSheet(
-          initialChildSize: 0.55,
+          initialChildSize: 0.75,
           minChildSize: 0.35,
           maxChildSize: 0.95,
           builder: (context, scrollController) {
@@ -412,6 +413,7 @@ class _CommentSheetState extends State<CommentSheet> {
                                         return await showDialog<bool>(
                                           context: context,
                                           builder: (_) => AlertDialog(
+                                            backgroundColor: Colors.white,
                                             title: const Text('삭제할까요?'),
                                             content: const Text(
                                                 '해당 댓글이 게시글에서 삭제됩니다.'),

@@ -97,19 +97,27 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 28),
+    // ✅ 화면 내부 텍스트 스케일 고정: 기기/접근성 글자확대에도 레이아웃 안정
+    final media = MediaQuery.of(context);
+    return MediaQuery(
+      data: media.copyWith(textScaleFactor: 1.0),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          scrolledUnderElevation: 0,             // ✅ 스크롤 시 색상 틴트 제거
+          surfaceTintColor: Colors.transparent,  // ✅ 머터리얼3 자동 틴트 제거
+          leading: IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back_ios_new, size: 28),
+          ),
+          centerTitle: true,
+          title: const Text('좋아요 누른 코스', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
-        centerTitle: true,
-        title: const Text('좋아요 누른 코스', style: TextStyle(fontWeight: FontWeight.bold)),
+        body: _buildBody(),
       ),
-      body: _buildBody(),
     );
   }
 
@@ -128,7 +136,8 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
             crossAxisCount: 2,
             mainAxisSpacing: 16,
             crossAxisSpacing: 12,
-            childAspectRatio: 0.86,
+            // ✅ 세로 공간 소폭 확장해 다양한 기기에서도 안전
+            childAspectRatio: 0.82, // (기존 0.86)
           ),
           itemCount: _items.length,
           itemBuilder: (context, i) {
@@ -203,18 +212,20 @@ class _SaveCourseScreenState extends State<SaveCourseScreen> {
                               ),
                             ),
                           ),
-
                         ],
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  c.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700),
+                const SizedBox(height: 6), // (기존 8) 살짝 줄여 여유 확보
+                // ✅ 제목 영역을 Flexible로 감싸 가용 높이에 맞춰 안전하게 줄바꿈/생략
+                Flexible(
+                  child: Text(
+                    c.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700),
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text('$km km', style: const TextStyle(color: Colors.black54)),

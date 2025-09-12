@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -264,7 +265,10 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
         _vm.activeFilter = value;
         if (_lat != null && _lon != null) {
           await _vm.refreshPois(_lat!, _lon!);
-          _applyVmPoisToLocal(_lat!, _lon!);
+          // POI 데이터가 로드된 후 거리 계산
+          if (_vm.pois.isNotEmpty) {
+            _applyVmPoisToLocal(_lat!, _lon!);
+          }
           _showPoiBottomSheet(); // 리스트 바텀시트 표시
         }
       },
@@ -301,7 +305,9 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
 
   /// ======================= POI 바텀시트 =======================
   Future<void> _showPoiBottomSheet() async {
-    if (_pois.isEmpty) return;
+    if (_pois.isEmpty) {
+      return;
+    }
 
     showModalBottomSheet(
       context: context,
@@ -320,7 +326,10 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
             return ListView.separated(
               controller: controller,
               itemCount: _pois.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, thickness: 1, color: Color(0xFFE0E0E0)),
+              separatorBuilder: (_, __) => const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Divider(height: 1, thickness: 1, color: Color(0xFFE0E0E0)),
+              ),
               itemBuilder: (_, i) {
                 final m = _pois[i];
                 final name = (m['name'] as String?) ?? '-';
@@ -395,7 +404,7 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
           ? Padding(
         padding: const EdgeInsets.only(bottom: 45, right: 16),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(30),
           onTap: () async {
             _suppressPoiOnce = true;
             if (_lat != null && _lon != null) {
@@ -405,15 +414,77 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
             }
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
-              color: const Color(0xB3F5F5F5),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: const [
-                BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3)),
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                center: Alignment.topLeft,
+                radius: 1.0,
+                colors: [
+                  Colors.white.withOpacity(0.15),
+                  Colors.white.withOpacity(0.05),
+                  Colors.white.withOpacity(0.02),
+                ],
+                stops: const [0.0, 0.6, 1.0],
+              ),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.15),
+                width: 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 25,
+                  offset: const Offset(0, 12),
+                  spreadRadius: 1,
+                ),
+                BoxShadow(
+                  color: Colors.white.withOpacity(0.2),
+                  blurRadius: 2,
+                  offset: const Offset(-1, -1),
+                ),
               ],
             ),
-            child: const Icon(Icons.gps_fixed, color: Colors.black, size: 28),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withOpacity(0.12),
+                        Colors.white.withOpacity(0.03),
+                        Colors.white.withOpacity(0.01),
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
+                    ),
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        center: Alignment.topLeft,
+                        radius: 0.7,
+                        colors: [
+                          Colors.white.withOpacity(0.08),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.gps_fixed,
+                      color: Color(0xFFFF4E6B),
+                      size: 26,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       )
@@ -587,22 +658,22 @@ class _KakaoMapScreenState extends State<KakaoMapScreen> {
       const R = 6371000.0; // m
       final dLat = (lat2 - lat1) * math.pi / 180.0;
       final dLon = (lon2 - lon1) * math.pi / 180.0;
-      final a = (math.sin(dLat / 2) * math.sin(dLat / 2)) +
-          math.cos(lat1 * math.pi / 180.0) *
-              math.cos(lat2 * math.pi / 180.0) *
-              (math.sin(dLon / 2) * math.sin(dLon / 2));
-      final c = 2 * math.atan2(math.sqrt(1 - a), 1 - math.sqrt(1 - a));
+      final lat1Rad = lat1 * math.pi / 180.0;
+      final lat2Rad = lat2 * math.pi / 180.0;
+
+      final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+          math.cos(lat1Rad) * math.cos(lat2Rad) *
+              math.sin(dLon / 2) * math.sin(dLon / 2);
+      final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
       return R * c;
     }
 
     final out = <Map<String, dynamic>>[];
     for (final m in items) {
-      final d = haversine(
-        lat,
-        lon,
-        (m['lat'] as num).toDouble(),
-        (m['lon'] as num).toDouble(),
-      );
+      final poiLat = (m['lat'] as num).toDouble();
+      final poiLon = (m['lon'] as num).toDouble();
+      final d = haversine(lat, lon, poiLat, poiLon);
+
       final n = Map<String, dynamic>.from(m);
       n['distance'] = d;
       out.add(n);

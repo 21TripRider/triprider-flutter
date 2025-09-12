@@ -228,6 +228,7 @@ class _SwipeableCardState extends State<_SwipeableCard>
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white, // ✅ 여기서 원하는 색으로 변경
         title: const Text("코스 삭제",
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
         content: Text("'${widget.course.title}'를 삭제하시겠습니까?"),

@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:triprider/screens/Login/Email_Input_Screen.dart';
 import 'package:triprider/screens/Login/LoginScreen.dart';
 import 'package:triprider/screens/Login/widgets/Login_Screen_Button.dart';
@@ -19,18 +18,14 @@ class _WelcomescreenState extends State<Welcomescreen> {
       child: Scaffold(
         backgroundColor: Colors.white,
         body: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            SizedBox(height: 120),
             TripRider_logo(),
-
-            SizedBox(height: 100),
-
+            Spacer(),
             Login_Button(onPressed: Login_Pressed),
-
             SizedBox(height: 20),
-
             Account_Button(onPressed: Account_Pressed),
+            SizedBox(height: 80),
           ],
         ),
       ),
@@ -70,20 +65,18 @@ class TripRider_logo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Center(
-          child: Transform.translate(
-            // ⬅️ 시각 중심 보정: 필요하면 -6 ~ -16 사이로 미세 조정
-            offset: const Offset(-42, 0),
-            child: SizedBox(
-              width: 380,
-              height: 380,
-              child: SvgPicture.asset(
-                'assets/image/triprider_logo_3D.svg',
-                fit: BoxFit.contain,
-                alignment: Alignment.center,
-              ),
+          child: SizedBox(
+            width: 300,
+            height: 200,
+            child: Image.asset(
+              'assets/image/triprider_welcome.png',
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
             ),
           ),
         ),
+
+        SizedBox(height: 80),
 
         Column(
           children: const [
@@ -93,8 +86,8 @@ class TripRider_logo extends StatelessWidget {
               style: TextStyle(fontSize: 25, fontWeight: FontWeight.w700),
             ),
             SizedBox(height: 10),
-            Text('계정이 없으시다면', textAlign: TextAlign.center),
-            Text('앱서비스 이용을 위해 회원가입해주세요', textAlign: TextAlign.center),
+            Text('계정이 없으시다면', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            Text('앱서비스 이용을 위해 회원가입해주세요', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
           ],
         ),
       ],

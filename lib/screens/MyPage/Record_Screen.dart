@@ -204,7 +204,11 @@ class _RecordScreenState extends State<RecordScreen> {
     final rides = _records.length;
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        scrolledUnderElevation: 0,             // ✅ 스크롤 시 색상 틴트 제거
+        surfaceTintColor: Colors.transparent,  // ✅ 머터리얼3 자동 틴트 제거
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back_ios_new, size: 28),
@@ -216,79 +220,96 @@ class _RecordScreenState extends State<RecordScreen> {
       body: RefreshIndicator(
         onRefresh: _refreshRecords,
         child: ListView(
-          padding: const EdgeInsets.all(25),
           children: [
             // ── 상단 요약 ───────────────────────────────────────────
-            SizedBox(
-              height: 170,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('누적 주행거리',
-                      style:
-                      TextStyle(fontSize: 25, fontWeight: FontWeight.w500)),
-                  Text('${_totalKm.toStringAsFixed(1)} km',
-                      style: const TextStyle(
-                          fontSize: 40, fontWeight: FontWeight.bold)),
-                  Row(
-                    children: [
-                      _buildStatColumn('라이딩', '$rides 회'),
-                      const SizedBox(width: 30),
-                      _buildStatColumn('시간', totalTime),
-                      const SizedBox(width: 30),
-                      _buildStatColumn('평균속도', _overallAvgSpeedKmH()),
-                    ],
-                  ),
-                ],
+            Padding(
+              padding: const EdgeInsets.all(25),
+              child: SizedBox(
+                height: 170,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('누적 주행거리',
+                        style:
+                        TextStyle(fontSize: 25, fontWeight: FontWeight.w500)),
+                    Text('${_totalKm.toStringAsFixed(1)} km',
+                        style: const TextStyle(
+                            fontSize: 40, fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [
+                        _buildStatColumn('라이딩', '$rides 회'),
+                        const SizedBox(width: 30),
+                        _buildStatColumn('시간', totalTime),
+                        const SizedBox(width: 30),
+                        _buildStatColumn('평균속도', _overallAvgSpeedKmH()),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
 
             const SizedBox(height: 16),
 
             // ── ✅ 기간 필터: 주 · 월 · 년 · 전체 (카드 목록만 필터) ─────────────
-            _buildDateFilterRow(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 25),
+              child: _buildDateFilterRow(),
+            ),
 
             const SizedBox(height: 20),
 
-            // ── 카드 목록 ──────────────────────────────────────────
-            if (_visibleRecords.isEmpty)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 40),
-                  child: Text(
-                    '해당 기간의 주행 기록이 없습니다.',
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                ),
-              )
-            else
-              ..._visibleRecords.map((r) {
-                final startedAt =
-                    DateTime.tryParse(r['startedAt'] ?? '') ??
-                        DateTime.now();
-                final date =
-                    '${startedAt.year}.${startedAt.month.toString().padLeft(2, '0')}.${startedAt.day.toString().padLeft(2, '0')}';
-                final distKm =
-                    ((r['distanceMeters'] as num?)?.toDouble() ?? 0.0) / 1000.0;
-                final avg = (r['avgSpeedKmh'] as num?)?.toDouble() ?? 0.0;
-                final max = (r['maxSpeedKmh'] as num?)?.toDouble() ?? 0.0;
-                final time =
-                _formatHms((r['elapsedSeconds'] as num?)?.toInt() ?? 0);
-                final imagePath = r['imagePath'] as String?;
-                final routePath =
-                (r['path'] as List?)?.cast<Map<String, dynamic>>();
+            // ── 토글 밑부터 배경색 영역 (화면 전체 너비) ──────────────────────────────────────────
+            Container(
+              width: double.infinity,
+              color: const Color(0xFFF5F5F5),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 20),
+                child: Column(
+                  children: [
+                    // ── 카드 목록 ──────────────────────────────────────────
+                    if (_visibleRecords.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 40),
+                          child: Text(
+                            '해당 기간의 주행 기록이 없습니다.',
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                        ),
+                      )
+                    else
+                      ..._visibleRecords.map((r) {
+                        final startedAt =
+                            DateTime.tryParse(r['startedAt'] ?? '') ??
+                                DateTime.now();
+                        final date =
+                            '${startedAt.year}.${startedAt.month.toString().padLeft(2, '0')}.${startedAt.day.toString().padLeft(2, '0')}';
+                        final distKm =
+                            ((r['distanceMeters'] as num?)?.toDouble() ?? 0.0) / 1000.0;
+                        final avg = (r['avgSpeedKmh'] as num?)?.toDouble() ?? 0.0;
+                        final max = (r['maxSpeedKmh'] as num?)?.toDouble() ?? 0.0;
+                        final time =
+                        _formatHms((r['elapsedSeconds'] as num?)?.toInt() ?? 0);
+                        final imagePath = r['imagePath'] as String?;
+                        final routePath =
+                        (r['path'] as List?)?.cast<Map<String, dynamic>>();
 
-                return _buildRideCard(
-                  date: date,
-                  distance: distKm.toStringAsFixed(1),
-                  avgSpeed: avg.toStringAsFixed(1),
-                  maxSpeed: max.toStringAsFixed(1),
-                  time: time,
-                  imagePath: imagePath,
-                  routePath: routePath,
-                );
-              }),
+                        return _buildRideCard(
+                          date: date,
+                          distance: distKm.toStringAsFixed(1),
+                          avgSpeed: avg.toStringAsFixed(1),
+                          maxSpeed: max.toStringAsFixed(1),
+                          time: time,
+                          imagePath: imagePath,
+                          routePath: routePath,
+                        );
+                      }),
+                  ],
+                ),
+              ),
+            ),
             if (_usedServerSummary) const SizedBox(height: 8),
           ],
         ),
@@ -300,26 +321,25 @@ class _RecordScreenState extends State<RecordScreen> {
   Widget _buildDateFilterRow() {
     Widget chip(String label, _DateFilter v) {
       final selected = _filter == v;
-      return ChoiceChip(
-        label: Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : Colors.black87,
+      return GestureDetector(
+        onTap: () => setState(() => _filter = v),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFFF4E6B) : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: selected ? const Color(0xFFFF4E6B) : const Color(0xFFE5E7EB),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : Colors.black87,
+            ),
           ),
         ),
-        selected: selected,
-        onSelected: (_) => setState(() => _filter = v),
-        backgroundColor: Colors.white,
-        selectedColor: const Color(0xFFFF4E6B),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: BorderSide(
-            color: selected ? const Color(0xFFFF4E6B) : const Color(0xFFE5E7EB),
-          ),
-        ),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        elevation: 0,
       );
     }
 
@@ -380,7 +400,7 @@ class _RecordScreenState extends State<RecordScreen> {
         margin: const EdgeInsets.only(bottom: 20),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(

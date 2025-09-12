@@ -1,4 +1,3 @@
-// lib/screens/MyPage/mypage_screen.dart
 import 'dart:io';
 import 'dart:convert';
 import 'dart:ui' show ImageFilter;
@@ -230,7 +229,6 @@ Future<MyPageResponse> fetchMyPage() async {
 }
 
 Future<void> updateIntroOnServer(String intro) async {
-  // 비어있을 땐 여기로 오지 않음(클라이언트에서 clearIntroOnServer 사용)
   final uri = Uri.parse('$kApiBase/api/mypage/intro');
   final res = await http.put(
     uri,
@@ -303,7 +301,6 @@ String? _normalizeIntro(dynamic raw) {
   final low = t.toLowerCase();
   if (low == 'null' || low == 'undefined') return null;
 
-  // JSON처럼 보이면 한 번 더 파싱
   if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))) {
     try {
       final obj = jsonDecode(t);
@@ -334,8 +331,7 @@ class MypageScreen extends StatefulWidget {
   State<MypageScreen> createState() => _MypageScreenState();
 }
 
-class _MypageScreenState extends State<MypageScreen>
-    with WidgetsBindingObserver {
+class _MypageScreenState extends State<MypageScreen> with WidgetsBindingObserver {
   String _nickname = '닉네임';
   String _introText = '한줄 소개';
   String? _profileImageUrl;
@@ -347,8 +343,7 @@ class _MypageScreenState extends State<MypageScreen>
   XFile? _pickedImage;
   bool _loading = true;
 
-  bool _isPlaceholder(String s) =>
-      s.trim().isEmpty || s.trim() == kIntroPlaceholderText;
+  bool _isPlaceholder(String s) => s.trim().isEmpty || s.trim() == kIntroPlaceholderText;
 
   @override
   void initState() {
@@ -424,11 +419,23 @@ class _MypageScreenState extends State<MypageScreen>
       useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => EditProfileSheet(
-        initialIntro: _introText,
-        initialImage: _pickedImage,
-        initialNetworkImage: _profileImageUrl,
-      ),
+      barrierColor: Colors.black54, // ✅ 어두운 영역 표시
+      builder: (ctx) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            Navigator.of(ctx).pop(); // ✅ 어두운 영역 터치 시 닫기
+          },
+          child: GestureDetector(
+            onTap: () {}, // ✅ 시트 내부 터치 시 닫히지 않도록
+            child: EditProfileSheet(
+              initialIntro: _introText,
+              initialImage: _pickedImage,
+              initialNetworkImage: _profileImageUrl,
+            ),
+          ),
+        );
+      },
     );
 
     if (result == null) return;
@@ -439,7 +446,6 @@ class _MypageScreenState extends State<MypageScreen>
         final newIntro = result.intro!.trim();
 
         if (newIntro.isEmpty) {
-          // 비우기(서버 시도) → 실패해도 UI는 초기화
           await clearIntroOnServer();
           _introText = kIntroPlaceholderText;
         } else if (newIntro != _introText.trim()) {
@@ -475,6 +481,7 @@ class _MypageScreenState extends State<MypageScreen>
     }
   }
 
+
   ImageProvider<Object> _buildProfileImageProvider() {
     if (_pickedImage != null) return FileImage(File(_pickedImage!.path));
     final url = resolveImageUrl(_profileImageUrl);
@@ -487,18 +494,16 @@ class _MypageScreenState extends State<MypageScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
+      // ✔ AppBar 제거: 스크롤 시 닉네임/편집 아이콘이 고정되지 않도록
       backgroundColor: Colors.white,
-      appBar: MyPage_AppBar(
-        titleText: _loading ? '...' : _nickname,
-        onEditPressed: _openEditSheet,
-      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
         child: Column(
           children: [
             MyPage_top(
+              titleText: _loading ? '...' : _nickname, // ✔ 상단 카드 내부에 제목/아이콘 배치
+              onEditPressed: _openEditSheet,
               imageProvider: _buildProfileImageProvider(),
               intro: _introText,
               totalKm: _totalKm, // ✅ 전달
@@ -515,7 +520,7 @@ class _MypageScreenState extends State<MypageScreen>
 }
 
 /// =========================
-/// AppBar
+/// (참고) 기존 AppBar 클래스를 남겨두지만, 지금은 사용하지 않음
 /// =========================
 class MyPage_AppBar extends StatelessWidget implements PreferredSizeWidget {
   const MyPage_AppBar({super.key, this.onEditPressed, required this.titleText});
@@ -558,12 +563,18 @@ class MyPage_top extends StatelessWidget {
   final double totalKm;
   final double lapKm;
 
+  // ✔ 추가: 상단 좌측 닉네임 + 우측 편집 버튼을 카드 내부에 배치
+  final String titleText;
+  final VoidCallback onEditPressed;
+
   const MyPage_top({
     super.key,
     required this.imageProvider,
     required this.intro,
     required this.totalKm,
     required this.lapKm,
+    required this.titleText,
+    required this.onEditPressed,
   });
 
   @override
@@ -585,18 +596,35 @@ class MyPage_top extends StatelessWidget {
       ),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFFFF5E7E), Color(0xFFFF7E9E)],
+          colors: [Color(0xFFFFA6B5), Color(0xFFFF4E6B), Color(0xFFFA2A55)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ✔ AppBar 대체 헤더(스크롤 시 함께 사라짐)
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  titleText,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                ),
+              ),
+              IconButton(
+                onPressed: onEditPressed,
+                icon: const Icon(Icons.drive_file_rename_outline, size: 26, color: Colors.white),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: '프로필 편집',
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
           Row(
             children: [
               CircleAvatar(
@@ -682,8 +710,6 @@ class MyPage_Bottom extends StatelessWidget {
         _buildMenuItem(context, '개인정보처리방침', destinationPage: const PrivacyPolicyScreen()),
         _buildMenuItem(context, '이용약관', destinationPage: const TermsOfServiceScreen()),
         _buildMenuItem(context, '로그아웃', destinationPage: const LogoutScreen()),
-
-        // ✅ 회원탈퇴: 블러 배경 + 마이페이지 위에서 모달로 표시
         _buildMenuItem(
           context,
           '회원탈퇴',
@@ -693,7 +719,6 @@ class MyPage_Bottom extends StatelessWidget {
     );
   }
 
-  /// 공통 메뉴 아이템 (onTap이 주어지면 그것을 실행, 없으면 destinationPage로 push)
   Widget _buildMenuItem(
       BuildContext context,
       String title, {
@@ -729,25 +754,21 @@ class MyPage_Bottom extends StatelessWidget {
     );
   }
 
-  /// ✅ 흐림(블러) + 딤 처리된 다이얼로그
   Future<void> _showDeleteDialog(BuildContext context) async {
     await showGeneralDialog(
       context: context,
       barrierDismissible: true,
       barrierLabel: '회원탈퇴',
-      // barrierColor를 투명으로 두고, 내부에서 BackdropFilter + 반투명 레이어 적용
       barrierColor: Colors.transparent,
       pageBuilder: (ctx, anim1, anim2) {
         return Stack(
           children: [
-            // 화면 전체 블러 + 살짝 어둡게
             Positioned.fill(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                 child: Container(color: Colors.black.withOpacity(0.25)),
               ),
             ),
-            // 실제 다이얼로그
             const Center(child: DeleteAccountDialog()),
           ],
         );
@@ -802,7 +823,6 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
     super.initState();
     _image = widget.initialImage;
 
-    // ✅ 플레이스홀더로 표시 중이었다면 입력칸은 빈 값으로 시작
     final initialText =
     (widget.initialIntro.trim() == kIntroPlaceholderText) ? '' : widget.initialIntro;
     _controller = TextEditingController(text: initialText);
@@ -885,8 +905,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('한줄 소개',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const Text('한줄 소개', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               TextField(
                 controller: _controller,
@@ -922,8 +941,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
                 ),
                 child: const Text(
                   '저장',
-                  style:
-                  TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
                 ),
               ),
             ],

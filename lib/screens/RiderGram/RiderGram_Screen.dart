@@ -90,6 +90,8 @@ class _RidergramScreenState extends State<RidergramScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,             // ✅ 스크롤 시 색상 틴트 제거
+        surfaceTintColor: Colors.transparent,  // ✅ 머터리얼3 자동 틴트 제거
         automaticallyImplyLeading: false,
         actions: [
           IconButton(

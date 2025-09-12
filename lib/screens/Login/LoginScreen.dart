@@ -10,6 +10,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:triprider/screens/Login/Social_Nickname.dart';
 import 'package:triprider/screens/home/HomeScreen.dart';
 import 'package:triprider/screens/Login/widgets/Login_Screen_Button.dart';
+// 약관 모달
+import 'package:triprider/screens/Login/widgets/Terms_Agreement_Model.dart';
 
 class Loginscreen extends StatefulWidget {
   const Loginscreen({super.key});
@@ -28,6 +30,7 @@ class _LoginscreenState extends State<Loginscreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
         centerTitle: true,
         title: const Text(
           '로그인',
@@ -57,8 +60,8 @@ class _LoginscreenState extends State<Loginscreen> {
             LoginScreenButton(
               T: 20,
               B: 80,
-              L: 17,
-              R: 17,
+              L: 16,
+              R: 16,
               color: const Color(0XFFFF4E6B),
               onPressed: _loginWithEmail,
               child: const Text(
@@ -74,7 +77,7 @@ class _LoginscreenState extends State<Loginscreen> {
             const SizedBox(height: 30),
             // 소셜 로그인 버튼들 (아래쪽에 배치)
             Padding(
-              padding: const EdgeInsets.only(left: 20,right: 20),
+              padding: const EdgeInsets.only(left: 20, right: 18),
               child: GestureDetector(
                 onTap: _loginWithKakao,
                 child: Container(
@@ -98,7 +101,7 @@ class _LoginscreenState extends State<Loginscreen> {
             ),
             const SizedBox(height: 16),
             Padding(
-              padding: const EdgeInsets.only(left: 20,right: 20),
+              padding: const EdgeInsets.only(left: 20, right: 20),
               child: GestureDetector(
                 onTap: _loginWithGoogle,
                 child: Container(
@@ -235,7 +238,6 @@ class _LoginscreenState extends State<Loginscreen> {
 
   // =================== 공통 응답 처리 ===================
 
-  // 응답 본문에서 사람이 읽을 수 있는 메시지 추출
   String? _extractMessage(String body) {
     try {
       final decoded = jsonDecode(body);
@@ -272,12 +274,13 @@ class _LoginscreenState extends State<Loginscreen> {
           MaterialPageRoute(builder: (_) => const SocialNickname()),
         );
       } else {
-        await _goHome();
+        // 약관 동의 후에만 홈으로 이동
+        _showTermsAgreementModalForLogin();
       }
       return;
     }
 
-    // 실패: 사용자 친화 메시지 매핑
+    // 실패
     String msg;
     switch (res.statusCode) {
       case 401:
@@ -302,6 +305,27 @@ class _LoginscreenState extends State<Loginscreen> {
     _showPopup('로그인 실패', msg, type: PopupType.error);
   }
 
+  // 로그인 성공 후 약관 동의 모달 띄우기
+  void _showTermsAgreementModalForLogin() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => TermsAgreementModal(
+        email: emailController.text.trim(),
+        originalPassword: '',
+        onAgreed: (email, password, tos, privacy) async {
+          // (선택) 저장해서 다음엔 스킵하고 싶다면 사용
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('serviceTermsAgreed', tos);
+          await prefs.setBool('privacyPolicyAgreed', privacy);
+
+          if (!mounted) return;
+          await _goHome();
+        },
+      ),
+    );
+  }
+
   Future<void> _goHome() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('nickname')?.trim();
@@ -310,7 +334,7 @@ class _LoginscreenState extends State<Loginscreen> {
     _showPopup('환영합니다', '$display님, 오늘도 안전 라이딩 하세요!', type: PopupType.success);
     if (!mounted) return;
     await Future.delayed(const Duration(milliseconds: 400));
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context, rootNavigator: true).pushReplacement(
       MaterialPageRoute(builder: (_) => const Homescreen()),
     );
   }
@@ -406,8 +430,8 @@ class SocialLoginButton extends StatelessWidget {
     return LoginScreenButton(
       T: 0,
       B: 30,
-      L: 17,
-      R: 17,
+      L: 16,
+      R: 16,
       color: color,
       onPressed: onPressed,
       child: Row(
@@ -425,7 +449,7 @@ class SocialLoginButton extends StatelessWidget {
   }
 }
 
-/// =================== 커스텀 팝업 구현부 (수정본) ===================
+/// =================== 커스텀 팝업 구현부 ===================
 enum PopupType { info, success, warn, error }
 
 void showTripriderPopup(
@@ -438,7 +462,6 @@ void showTripriderPopup(
   final overlay = Overlay.of(context);
   if (overlay == null) return;
 
-  // 포인트 컬러 (아이콘에만 사용)
   Color accent;
   switch (type) {
     case PopupType.success:
@@ -452,7 +475,7 @@ void showTripriderPopup(
       break;
     case PopupType.info:
     default:
-      accent = const Color(0xFFFF4E6B); // 브랜드 핑크 톤
+      accent = const Color(0xFFFF4E6B);
       break;
   }
 
@@ -469,10 +492,8 @@ void showTripriderPopup(
     builder: (ctx) => SafeArea(
       child: Stack(
         children: [
-          // 탭하면 닫힘
-          // 중상단 위치 → 상단 고정
           Positioned(
-            top: 0, // 상태바 아래 8px
+            top: 0,
             left: 16,
             right: 16,
             child: TweenAnimationBuilder<double>(
@@ -482,14 +503,13 @@ void showTripriderPopup(
               builder: (_, t, child) => Opacity(
                 opacity: t,
                 child: Transform.translate(
-                  offset: Offset(0, (1 - t) * -8), // 위에서 살짝 내려오는 느낌
+                  offset: Offset(0, (1 - t) * -8),
                   child: child,
                 ),
               ),
               child: Material(
                 color: Colors.transparent,
                 child: Container(
-                  // ⛔ width는 이제 필요 없음 (left/right로 폭 지정됨)
                   padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.7),
@@ -503,10 +523,9 @@ void showTripriderPopup(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 헤더 (아이콘 + 제목)
                       Row(
                         children: [
-                          Icon(Icons.sports_motorsports_rounded, color: Colors.pink),
+                          Icon(Icons.sports_motorsports_rounded, color: accent),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -521,24 +540,15 @@ void showTripriderPopup(
                         ],
                       ),
                       const SizedBox(height: 10),
-                      // 카드 안 회색 구분선
                       const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
                       const SizedBox(height: 10),
-                      // 본문 메시지
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              message,
-                              style: const TextStyle(
-                                fontSize: 14.5,
-                                height: 1.35,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        message,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          height: 1.35,
+                          color: Colors.black87,
+                        ),
                       ),
                     ],
                   ),

@@ -51,77 +51,87 @@ class _PasswordInputScreenState extends State<PasswordInputScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
         leading: IconButton(
           onPressed: _goBack,
           icon: const Icon(Icons.arrow_back_ios_new),
         ),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 35, left: 16, bottom: 25),
-            child: Text(
-              '비밀번호를 입력해주세요.',
-              style: TextStyle(fontSize: 25, fontWeight: FontWeight.w700),
+      body: SingleChildScrollView( // ← 키보드가 올라와도 스크롤 가능하게
+        padding: const EdgeInsets.only(bottom: 80), // 버튼 영역과 겹치지 않게 여백
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 35, left: 16, bottom: 25),
+              child: Text(
+                '비밀번호를 입력해주세요.',
+                style: TextStyle(fontSize: 25, fontWeight: FontWeight.w700),
+              ),
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(left: 16, bottom: 10),
-            child: Text('비밀번호'),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: ValueListenableBuilder<TextEditingValue>(
-              valueListenable: passwordController,
-              builder: (_, value, __) => TextField(
-                controller: passwordController,
-                obscureText: _obscure,
-                textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.newPassword],
-                style: const TextStyle(fontSize: 20),
-                decoration: InputDecoration(
-                  suffixIcon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: _obscure ? '보이기' : '숨기기',
-                        onPressed: () => setState(() => _obscure = !_obscure),
-                        icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
-                      ),
-                      if (value.text.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.only(left: 16, bottom: 10),
+              child: Text('비밀번호'),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: passwordController,
+                builder: (_, value, __) => TextField(
+                  controller: passwordController,
+                  obscureText: _obscure,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.newPassword],
+                  style: const TextStyle(fontSize: 20),
+                  decoration: InputDecoration(
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                         IconButton(
-                          onPressed: _clear,
-                          icon: const Icon(Icons.close),
+                          tooltip: _obscure ? '보이기' : '숨기기',
+                          onPressed: () => setState(() => _obscure = !_obscure),
+                          icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
                         ),
-                    ],
-                  ),
-                  enabledBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black87, width: 2),
+                        if (value.text.isNotEmpty)
+                          IconButton(
+                            onPressed: _clear,
+                            icon: const Icon(Icons.close),
+                          ),
+                      ],
+                    ),
+                    enabledBorder: const UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.grey),
+                    ),
+                    focusedBorder: const UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.black87, width: 2),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          _PasswordCondition(controller: passwordController),
-          const Spacer(),
-          LoginScreenButton(
-            T: 0,
-            B: 55,
-            L: 17,
-            R: 17,
-            color: const Color(0XFFFF4E6B),
-            child: const Next_Widget_Child(),
-            onPressed: _next,
-          ),
-        ],
+            _PasswordCondition(controller: passwordController),
+          ],
+        ),
+      ),
+
+      // ✅ 버튼을 bottomNavigationBar에 넣음
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.all(16),
+        child: LoginScreenButton(
+          T: 0,
+          B: 0,
+          L: 0,
+          R: 0,
+          color: const Color(0XFFFF4E6B),
+          child: const Next_Widget_Child(),
+          onPressed: _next,
+        ),
       ),
     );
   }
+
 
   // 로그인 화면과 동일한 상단 팝업 사용
   void _showPopup(String title, String message, {PopupType type = PopupType.info}) {

@@ -248,6 +248,7 @@ class _CourseDetailmapState extends State<CourseDetailmap> {
           icon: Icon(Icons.arrow_back_ios),
         ),
         title: const Text('코스 상세'),
+        backgroundColor: Colors.white,
       ),
       body: Stack(
         children: [

@@ -106,22 +106,34 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final p = _post;
 
     return Scaffold(
+      backgroundColor: Colors.white, // ← 전체 배경 흰색
       appBar: AppBar(
-        leading: IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back_ios)),
+        elevation: 0.5,
+        scrolledUnderElevation: 0,            // 머터리얼3 틴트 방지
+        backgroundColor: Colors.white,         // ← 앱바 배경 흰색
+        surfaceTintColor: Colors.transparent,  // ← 상단 틴트 제거
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios),
+          color: Colors.black,
+        ),
         centerTitle: true,
-        title: const Text('게시물'),
+        title: const Text('게시물',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700)),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : (_error.isNotEmpty)
-          ? Center(child: Text(_error, style: const TextStyle(color: Colors.red)))
+          ? Center(
+          child: Text(_error, style: const TextStyle(color: Colors.red)))
           : (p == null)
           ? const Center(child: Text('게시물을 찾을 수 없습니다'))
           : RefreshIndicator(
         onRefresh: _fetch,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 16, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -142,12 +154,20 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   children: [
                     CircleAvatar(
                       radius: 16,
-                      backgroundImage: (p.writerProfileImage != null && p.writerProfileImage!.isNotEmpty)
-                          ? NetworkImage(ApiClient.absoluteUrl(p.writerProfileImage!))
-                          : const AssetImage('assets/image/logo.png') as ImageProvider,
+                      backgroundImage: (p.writerProfileImage != null &&
+                          p.writerProfileImage!.isNotEmpty)
+                          ? NetworkImage(ApiClient.absoluteUrl(
+                          p.writerProfileImage!))
+                          : const AssetImage(
+                          'assets/image/logo.png')
+                      as ImageProvider,
                     ),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(p.writer, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
+                    Expanded(
+                        child: Text(p.writer,
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600))),
                   ],
                 ),
               ),
@@ -161,7 +181,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     ApiClient.absoluteUrl(p.imageUrl!),
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
-                      height: 200, alignment: Alignment.center, color: const Color(0x11000000),
+                      height: 200,
+                      alignment: Alignment.center,
+                      color: const Color(0x11000000),
                       child: const Text('이미지 로드 실패'),
                     ),
                   ),
@@ -176,15 +198,21 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               // 위치/해시태그
               if ((p.location ?? '').isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text('📍 ${p.location!}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                Text('📍 ${p.location!}',
+                    style: const TextStyle(
+                        fontSize: 14, color: Colors.grey)),
               ],
               if ((p.hashtags ?? '').isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 10,
-                  children: (p.hashtags!.trim().split(RegExp(r'\s+')))
+                  children: (p.hashtags!
+                      .trim()
+                      .split(RegExp(r'\s+')))
                       .where((w) => w.isNotEmpty)
-                      .map((t) => Text(t, style: const TextStyle(color: Color(0xFF0088FF))))
+                      .map((t) => Text(t,
+                      style: const TextStyle(
+                          color: Color(0xFF0088FF))))
                       .toList(),
                 ),
               ],
@@ -195,13 +223,23 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 children: [
                   IconButton(
                     onPressed: _toggleLike,
-                    icon: Icon(p.liked ? Icons.favorite : Icons.favorite_border,
+                    icon: Icon(
+                        p.liked
+                            ? Icons.favorite
+                            : Icons.favorite_border,
                         color: p.liked ? Colors.red : null),
                   ),
-                  Text('${p.likeCount}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                  Text('${p.likeCount}',
+                      style: const TextStyle(
+                          fontSize: 14, color: Colors.grey)),
                   const SizedBox(width: 12),
-                  IconButton(icon: const Icon(Icons.mode_comment_outlined), onPressed: _openComments),
-                  Text('${p.commentCount}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                  IconButton(
+                      icon:
+                      const Icon(Icons.mode_comment_outlined),
+                      onPressed: _openComments),
+                  Text('${p.commentCount}',
+                      style: const TextStyle(
+                          fontSize: 14, color: Colors.grey)),
                 ],
               ),
             ],

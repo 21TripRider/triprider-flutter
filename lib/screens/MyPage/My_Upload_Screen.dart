@@ -1,5 +1,7 @@
+// lib/screens/RiderGram/My_Upload_Screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // ← 상태바 스타일용
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:triprider/core/network/Api_client.dart';
 import 'package:triprider/screens/RiderGram/Post.dart';
@@ -180,6 +182,7 @@ class _MyUploadScreenState extends State<MyUploadScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        backgroundColor: Colors.white,
         title: const Text('게시글 삭제'),
         content: const Text('정말 삭제하시겠어요?'),
         actions: [
@@ -194,7 +197,6 @@ class _MyUploadScreenState extends State<MyUploadScreen> {
       await ApiClient.delete('/api/posts/${p.id}');
       setState(() => _myPosts.removeAt(index));
 
-      // 🔔 SnackBar → 커스텀 팝업 (삭제 성공)
       showTripriderPopup(
         context,
         title: '삭제 완료',
@@ -202,7 +204,6 @@ class _MyUploadScreenState extends State<MyUploadScreen> {
         type: PopupType.success,
       );
     } catch (e) {
-      // 🔔 SnackBar → 커스텀 팝업 (삭제 실패)
       showTripriderPopup(
         context,
         title: '삭제 실패',
@@ -220,12 +221,24 @@ class _MyUploadScreenState extends State<MyUploadScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         elevation: 0.5,
+        scrolledUnderElevation: 0,            // ← 스크롤 시 틴트 방지
+        backgroundColor: Colors.white,         // ← 배경 흰색 고정
+        surfaceTintColor: Colors.transparent,  // ← 머터리얼3 틴트 제거
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.white,        // 상태바 배경
+          statusBarIconBrightness: Brightness.dark, // Android 아이콘 색
+          statusBarBrightness: Brightness.light,    // iOS 아이콘 색(검정)
+        ),
+        iconTheme: const IconThemeData(color: Colors.black),
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back_ios_new),
         ),
         centerTitle: true,
-        title: const Text('나의 게시물', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text(
+          '나의 게시물',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+        ),
       ),
       body: FutureBuilder<List<PostModel>>(
         future: _future,

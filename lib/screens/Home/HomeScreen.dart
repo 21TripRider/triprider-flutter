@@ -30,11 +30,11 @@ class _HomescreenState extends State<Homescreen> {
       body: SafeArea(
         child: ListView(
           children: const [
-            SizedBox(height: 20),
+            SizedBox(height: 12),
             _Weather(),
-            SizedBox(height: 20),
+            SizedBox(height: 12),
             _RentSection(),
-            SizedBox(height: 20),
+            SizedBox(height: 12),
             _Record(), // 최근 주행 기록 카드
           ],
         ),
@@ -195,9 +195,6 @@ class _WeatherState extends State<_Weather> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Center(
-                  child: Icon(Icons.circle, color: Colors.white, size: 8),
-                ),
               ],
             ),
           );
@@ -377,10 +374,10 @@ class _RecordState extends State<_Record> {
       list.sort((a, b) {
         final bd =
             DateTime.tryParse('${b['finishedAt'] ?? b['startedAt'] ?? ''}') ??
-            DateTime.fromMillisecondsSinceEpoch(0);
+                DateTime.fromMillisecondsSinceEpoch(0);
         final ad =
             DateTime.tryParse('${a['finishedAt'] ?? a['startedAt'] ?? ''}') ??
-            DateTime.fromMillisecondsSinceEpoch(0);
+                DateTime.fromMillisecondsSinceEpoch(0);
         return bd.compareTo(ad);
       });
 
@@ -389,23 +386,23 @@ class _RecordState extends State<_Record> {
         'startedAt': r['startedAt'],
         'endedAt': r['finishedAt'],
         'elapsedSeconds':
-            (r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0) is num
-                ? (r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0).toInt()
-                : int.tryParse(
-                      '${r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0}',
-                    ) ??
-                    0,
+        (r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0) is num
+            ? (r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0).toInt()
+            : int.tryParse(
+          '${r['movingSeconds'] ?? r['elapsedSeconds'] ?? 0}',
+        ) ??
+            0,
         'distanceMeters':
-            (((r['totalKm'] as num?)?.toDouble() ??
-                    double.tryParse('${r['totalKm'] ?? 0}') ??
-                    0.0) *
-                1000.0),
+        (((r['totalKm'] as num?)?.toDouble() ??
+            double.tryParse('${r['totalKm'] ?? 0}') ??
+            0.0) *
+            1000.0),
         'avgSpeedKmh':
-            (r['avgSpeedKmh'] as num?)?.toDouble() ??
+        (r['avgSpeedKmh'] as num?)?.toDouble() ??
             double.tryParse('${r['avgSpeedKmh'] ?? 0}') ??
             0.0,
         'maxSpeedKmh':
-            (r['maxSpeedKmh'] as num?)?.toDouble() ??
+        (r['maxSpeedKmh'] as num?)?.toDouble() ??
             double.tryParse('${r['maxSpeedKmh'] ?? 0}') ??
             0.0,
       };
@@ -436,10 +433,10 @@ class _RecordState extends State<_Record> {
     parsed.sort((a, b) {
       final ad =
           DateTime.tryParse(a['endedAt'] ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0);
+              DateTime.fromMillisecondsSinceEpoch(0);
       final bd =
           DateTime.tryParse(b['endedAt'] ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0);
+              DateTime.fromMillisecondsSinceEpoch(0);
       return bd.compareTo(ad);
     });
     return parsed.first;
@@ -657,10 +654,10 @@ class _Chip extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 30),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0XFFFFF4F6),
+        color: const Color(0XffF5FAFF),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(text, style: const TextStyle(color: Color(0XFFFF4E6B))),
+      child: Text(text, style: const TextStyle(color: Color(0XFF0088FF))),
     );
   }
 }

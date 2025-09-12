@@ -35,6 +35,8 @@ class _Riding_CourseState extends State<RidingCourse> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         elevation: 0,
+        scrolledUnderElevation: 0,             // ✅ 스크롤 시 색상 틴트 제거
+        surfaceTintColor: Colors.transparent,  // ✅ 머터리얼3 자동 틴트 제거
         backgroundColor: Colors.white,
         toolbarHeight: 56,
         titleSpacing: 0,
@@ -426,12 +428,12 @@ class _DistanceSectionState extends State<_DistanceSection> {
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 12,
-            childAspectRatio: 0.86,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 16,
+            childAspectRatio: 0.78,
           ),
           itemCount: _items.length,
           itemBuilder: (context, i) {
@@ -517,11 +519,13 @@ class _DistanceSectionState extends State<_DistanceSection> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  c.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700),
+                Flexible(
+                  child: Text(
+                    c.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700),
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text('$km km', style: const TextStyle(color: Colors.black54)),

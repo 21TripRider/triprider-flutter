@@ -91,7 +91,9 @@ class _EmailInputScreenState extends State<EmailInputScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
         leading: IconButton(onPressed: _goBack, icon: const Icon(Icons.arrow_back_ios_new)),
       ),
       body: Column(

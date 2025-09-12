@@ -81,6 +81,8 @@ class _CustomRiding_Course_State extends State<CustomRidingCourse> {
       return Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
+          scrolledUnderElevation: 0,             // ✅ 스크롤 시 색상 틴트 제거
+          surfaceTintColor: Colors.transparent,  // ✅ 머터리얼3 자동 틴트 제거
           title: Text(widget.title),
           centerTitle: true,
         ),
@@ -121,12 +123,12 @@ class CreateCourseButton extends StatelessWidget {
                 child: Text.rich(
                   const TextSpan(
                     children: [
-                      TextSpan(text: '나의 취향을 담은 ', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                      TextSpan(text: '나의 취향을 담은 ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                       TextSpan(
                         text: '여행 코스',
-                        style: TextStyle(color: Color(0XFFFF4E6B), fontSize: 20, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: Color(0XFFFF4E6B), fontSize: 18, fontWeight: FontWeight.w600),
                       ),
-                      TextSpan(text: '를 생성해보세요', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                      TextSpan(text: '를 생성해보세요', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                     ],
                   ),
                   textAlign: TextAlign.center,

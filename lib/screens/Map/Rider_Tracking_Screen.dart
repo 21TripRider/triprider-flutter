@@ -423,51 +423,57 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
           children: [
             Column(
               children: [
-                SizedBox(
-                  height: mapHeight + padding.top,
-                  child: Stack(
-                    children: [
-                      // ✅ 사용자가 드래그/탭하지 못하도록 미니맵 터치 차단
-                      Positioned.fill(
-                        top: padding.top,
-                        child: IgnorePointer(
-                          ignoring: true,
-                          child: _buildPlatformView(_lat!, _lon!),
-                        ),
-                      ),
-                      // ✅ 미니맵 중앙 커스텀 위치 마커 (하얀 링 + 핑크 코어)
-                      Positioned.fill(
-                        top: padding.top,
-                        child: const IgnorePointer(
-                          ignoring: true,
-                          child: Center(child: _MyLocationDot()),
-                        ),
-                      ),
-                      // 닫기 버튼(상단 좌측)
-                      Positioned(
-                        top: padding.top + 8,
-                        left: 12,
-                        child: GestureDetector(
-                          onTap: _minimizeToMap,
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                    color: Colors.black12, blurRadius: 8)
-                              ],
-                            ),
-                            child: const Icon(Icons.arrow_back_ios_new,
-                                color: Colors.black87),
+                // ⬇️ 상태바까지 지도로 덮기 + 투명 상태바 지정
+                AnnotatedRegion<SystemUiOverlayStyle>(
+                  value: const SystemUiOverlayStyle(
+                    statusBarColor: Colors.transparent, // 지도 보이도록 투명
+                    statusBarIconBrightness: Brightness.dark,
+                    statusBarBrightness: Brightness.light,
+                  ),
+                  child: SizedBox(
+                    height: mapHeight + padding.top,
+                    child: Stack(
+                      children: [
+                        // ✅ 미니맵을 상태바 영역까지 채움 (top: 0)
+                        const Positioned.fill(
+                          child: IgnorePointer(
+                            ignoring: true,
+                            child: _MiniMapHost(),
                           ),
                         ),
-                      ),
-                    ],
+                        // ✅ 미니맵 중앙 커스텀 위치 마커
+                        const Positioned.fill(
+                          child: IgnorePointer(
+                            ignoring: true,
+                            child: Center(child: _MyLocationDot()),
+                          ),
+                        ),
+                        // 닫기 버튼(상단 좌측) — 안전영역 보정 유지
+                        Positioned(
+                          top: padding.top + 8,
+                          left: 12,
+                          child: GestureDetector(
+                            onTap: _minimizeToMap,
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: const [
+                                  BoxShadow(color: Colors.black12, blurRadius: 8)
+                                ],
+                              ),
+                              child: const Icon(Icons.arrow_back_ios_new,
+                                  color: Colors.black87),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+
                 // 하단 패널
                 Expanded(
                   child: Container(
@@ -505,6 +511,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                 ),
               ],
             ),
+
             // 화면 전체 기준 중앙에 주행 시간 표시
             Positioned.fill(
               child: Column(
@@ -640,7 +647,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
               _stopPressed = false;
               _stopHoldStart = null;
             });
-            if (held >= const Duration(seconds: 2)) {
+            if (held >= const Duration(seconds: 1)) {
               await _finishAndPop();
             } else {
               // 안내 팝업
@@ -685,8 +692,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
               color: Color(0xFFFF4E6B),
               shape: BoxShape.circle,
             ),
-            child:
-            const Icon(Icons.play_arrow, color: Colors.white, size: 40),
+            child: const Icon(Icons.play_arrow, color: Colors.white, size: 40),
           ),
         ),
       ],
@@ -698,6 +704,17 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     svc.removeListener(_onSvc);
     _mapPosSub?.cancel(); // 미니맵 follow 스트림 정리
     super.dispose();
+  }
+}
+
+/// ✅ 상단 미니맵용 PlatformView 호스트 (상태바까지 채우기 위해 분리)
+class _MiniMapHost extends StatelessWidget {
+  const _MiniMapHost();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.findAncestorStateOfType<_RideTrackingScreenState>()!;
+    return state._buildPlatformView(state._lat!, state._lon!);
   }
 }
 

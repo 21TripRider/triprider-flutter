@@ -97,7 +97,8 @@ class RentshopList extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: const RentAppBar(),
+      appBar:
+      const RentAppBar(),
       body: Column(
         children: [
           Expanded(
@@ -210,6 +211,8 @@ class _RentAppBarState extends State<RentAppBar> {
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
+      scrolledUnderElevation: 0,            // ✅ 스크롤 시 색상 변하지 않음
+      surfaceTintColor: Colors.transparent, // ✅ 머터리얼3 틴트 제거
       centerTitle: true,
       title: const Text(
         '오토바이 렌트',
