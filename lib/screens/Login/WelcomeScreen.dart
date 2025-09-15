@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:triprider/screens/Login/Email_Input_Screen.dart';
 import 'package:triprider/screens/Login/LoginScreen.dart';
 import 'package:triprider/screens/Login/widgets/Login_Screen_Button.dart';
+// 약관 모달 추가
+import 'package:triprider/screens/Login/widgets/Terms_Agreement_Model.dart';
 
 class Welcomescreen extends StatefulWidget {
   const Welcomescreen({super.key});
@@ -19,43 +21,50 @@ class _WelcomescreenState extends State<Welcomescreen> {
         backgroundColor: Colors.white,
         body: Column(
           children: [
-            SizedBox(height: 120),
-            TripRider_logo(),
-            Spacer(),
+            const SizedBox(height: 120),
+            const TripRider_logo(),
+            const Spacer(),
             Login_Button(onPressed: Login_Pressed),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Account_Button(onPressed: Account_Pressed),
-            SizedBox(height: 80),
+            const SizedBox(height: 80),
           ],
         ),
       ),
     );
   }
 
-  Login_Pressed() {
+  void Login_Pressed() {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (BuildContext context) {
-          return Loginscreen();
+          return const Loginscreen();
         },
       ),
     );
   }
 
-  Account_Pressed() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (BuildContext context) {
-          return EmailInputScreen();
+  // ✅ 회원가입 버튼 → 약관 모달 띄우기 → 동의 시 회원가입(EmailInputScreen)으로 이동
+  void Account_Pressed() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => TermsAgreementModal(
+        email: '',             // 아직 이메일 입력 전이므로 빈 값
+        originalPassword: '',  // 아직 비밀번호 입력 전이므로 빈 값
+        onAgreed: (email, password, tos, privacy) async {
+          if (!mounted) return;
+          // 약관 모달은 내부에서 먼저 닫히므로 여기서 추가 pop 불필요
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const EmailInputScreen()),
+          );
         },
       ),
     );
   }
 }
 
-///첫 로고 화면
-///첫 로고 화면
-/// 첫 로고 화면 (좌측으로 살짝 시각 보정)
+/// 첫 로고 화면
 class TripRider_logo extends StatelessWidget {
   const TripRider_logo({super.key});
 
@@ -75,9 +84,7 @@ class TripRider_logo extends StatelessWidget {
             ),
           ),
         ),
-
-        SizedBox(height: 80),
-
+        const SizedBox(height: 80),
         Column(
           children: const [
             Text(
@@ -95,9 +102,7 @@ class TripRider_logo extends StatelessWidget {
   }
 }
 
-
-
-///로그인 버튼
+/// 로그인 버튼
 class Login_Button extends StatelessWidget {
   final VoidCallback onPressed;
 
@@ -110,14 +115,14 @@ class Login_Button extends StatelessWidget {
       B: 0,
       L: 17,
       R: 17,
-      child: LoginButton_Child(),
-      color: Color(0XFFFF426B),
+      child: const LoginButton_Child(),
+      color: const Color(0XFFFF426B),
       onPressed: onPressed,
     );
   }
 }
 
-///회원가입 버튼
+/// 회원가입 버튼
 class Account_Button extends StatelessWidget {
   final VoidCallback onPressed;
 
@@ -127,13 +132,13 @@ class Account_Button extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15, left: 17, right: 17),
-      child: Container(
+      child: SizedBox(
         width: double.infinity,
         height: 68,
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: Colors.white),
           onPressed: onPressed,
-          child: Text(
+          child: const Text(
             '회원가입',
             style: TextStyle(
               color: Colors.black,
@@ -152,7 +157,7 @@ class loginButton_Child extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    return const Text(
       '로그인',
       style: TextStyle(
         color: Colors.white,
@@ -168,7 +173,7 @@ class LoginButton_Child extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    return const Text(
       '로그인',
       style: TextStyle(
         color: Colors.white,

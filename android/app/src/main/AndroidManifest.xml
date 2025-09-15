@@ -18,7 +18,7 @@
 
     <application
         android:name="${applicationName}"
-        android:label="test_triprider"
+        android:label="트립라이더"
         android:icon="@mipmap/ic_launcher"
 
         android:usesCleartextTraffic="true"

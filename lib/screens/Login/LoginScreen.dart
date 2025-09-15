@@ -10,7 +10,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:triprider/screens/Login/Social_Nickname.dart';
 import 'package:triprider/screens/home/HomeScreen.dart';
 import 'package:triprider/screens/Login/widgets/Login_Screen_Button.dart';
-// 약관 모달
+// 약관 모달 (로그인에서는 사용하지 않지만 import 유지해도 무방)
 import 'package:triprider/screens/Login/widgets/Terms_Agreement_Model.dart';
 
 class Loginscreen extends StatefulWidget {
@@ -274,8 +274,8 @@ class _LoginscreenState extends State<Loginscreen> {
           MaterialPageRoute(builder: (_) => const SocialNickname()),
         );
       } else {
-        // 약관 동의 후에만 홈으로 이동
-        _showTermsAgreementModalForLogin();
+        // ✅ 로그인에서는 약관 모달 없이 바로 홈으로 이동
+        await _goHome();
       }
       return;
     }
@@ -305,7 +305,7 @@ class _LoginscreenState extends State<Loginscreen> {
     _showPopup('로그인 실패', msg, type: PopupType.error);
   }
 
-  // 로그인 성공 후 약관 동의 모달 띄우기
+  // (더 이상 사용하지 않지만 필요시 재활용 가능)
   void _showTermsAgreementModalForLogin() {
     showDialog(
       context: context,
@@ -314,11 +314,9 @@ class _LoginscreenState extends State<Loginscreen> {
         email: emailController.text.trim(),
         originalPassword: '',
         onAgreed: (email, password, tos, privacy) async {
-          // (선택) 저장해서 다음엔 스킵하고 싶다면 사용
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('serviceTermsAgreed', tos);
           await prefs.setBool('privacyPolicyAgreed', privacy);
-
           if (!mounted) return;
           await _goHome();
         },
