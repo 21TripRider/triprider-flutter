@@ -97,8 +97,7 @@ class RentshopList extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar:
-      const RentAppBar(),
+      appBar: const RentAppBar(),
       body: Column(
         children: [
           Expanded(
@@ -120,68 +119,68 @@ class RentshopList extends StatelessWidget {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: SizedBox(
-                      height: 140, // ✅ 모든 카드 동일 높이
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          ClipRRect(
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(16),
-                              bottomLeft: Radius.circular(16),
-                            ),
-                            child: SizedBox(
-                              width: 140,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(16),
+                            bottomLeft: Radius.circular(16),
+                          ),
+                          child: SizedBox(
+                            width: 120, // 가로 고정
+                            child: AspectRatio(
+                              aspectRatio: 1, // 정사각형
                               child: Image.asset(
                                 s['image'] as String,
                                 fit: BoxFit.cover,
                               ),
                             ),
                           ),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    s['name'] as String,
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                    maxLines: 1, // ✅ 길면 말줄임
-                                    overflow: TextOverflow.ellipsis,
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  s['name'] as String,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
                                   ),
-                                  Text(
-                                    s['addr'] as String,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                    maxLines: 1, // ✅ 한 줄로 고정
-                                    overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  s['addr'] as String,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade600,
                                   ),
-                                  Row(
-                                    children: [
-                                      ...stars(s['rating'] as double),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '(${(s['rating'] as double).toStringAsFixed(2)})',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.grey.shade600,
-                                        ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Row(
+                                  children: [
+                                    ...stars(s['rating'] as double),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '(${(s['rating'] as double).toStringAsFixed(2)})',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade600,
                                       ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -211,8 +210,8 @@ class _RentAppBarState extends State<RentAppBar> {
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
-      scrolledUnderElevation: 0,            // ✅ 스크롤 시 색상 변하지 않음
-      surfaceTintColor: Colors.transparent, // ✅ 머터리얼3 틴트 제거
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
       centerTitle: true,
       title: const Text(
         '오토바이 렌트',
